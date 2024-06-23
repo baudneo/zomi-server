@@ -1,0 +1,55 @@
+version: '3.6'
+
+services:
+  mlapi:
+#    build:
+#      context: ..
+#      dockerfile: ./orig.Dockerfile
+#    image: ghcr.io/baudneo/zm_ml-server:latest
+    image: baudneo/zm_ml:server-full
+    container_name: mlapi
+    restart: always
+    # Need privileged for USB access, comment out if not using USB compute device
+    privileged: true
+    ports:
+      - "5000:5000"
+    networks:
+      - zoneminder
+#    extra_hosts:
+#      - "zm.example.com:10.0.0.30"
+    volumes:
+      - ./mlapi/conf:/zm_ml/conf
+      - ./mlapi/models:/zm_ml/data/models
+      - ./mlapi/images:/zm_ml/data/images
+      - ./mlapi/scripts:/zm_ml/data/scripts
+      - ./mlapi/unknown_faces:/zm_ml/data/unknown_faces
+      - ./mlapi/known_faces:/zm_ml/data/known_faces
+      - ./mlapi/log:/log/zm_mlapi
+      # USB access for USB TPU/NCS (mount the whole USB system, unless you know which device it is)
+      #- /dev/bus/usb:/dev/bus/usb
+
+    devices:
+      # This is a WIP aka DOES NOT WORK YET (OpenVINO)
+      #- "/dev/ion:/dev/ion"  # HDDL - Intel Neural Compute Stick 2 :: See
+      - "/dev/dri:/dev/dri" # Allow access to iGPU (QuickSync)
+
+
+    env_file:
+      - ./server.env
+#    environment:
+#      DL_ALL_MODELS: true
+#      FORCE_MODELS: true
+
+    # NVIDIA GPU Example - https://docs.docker.com/compose/gpu-support/
+    # Remember to use the nvidia container toolkit to passthrough gpu to docker
+#    deploy:
+#      resources:
+#        reservations:
+#          devices:
+#            - driver: nvidia
+#              count: 3
+#              device_ids: ["2", "3"]
+#              capabilities: [ gpu, compute, utility ]
+
+networks:
+  zoneminder:

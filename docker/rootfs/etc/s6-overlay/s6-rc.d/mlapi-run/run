@@ -1,0 +1,49 @@
+#!/command/with-contenv bash
+# shellcheck shell=bash
+# ==============================================================================
+# MLAPI
+# Runs MLAPI
+# ==============================================================================
+program_name="mlapi_run"
+exec 2>&1
+
+# Move mlapi-config logic here for now
+# Why dont oneshot r6 services obey timeout configs?
+if [[ ! -f /zm_ml/conf/server.yml ]]; then
+  echo "[${program_name}] Creating default ZM ML Server CONFIGURATION file by envsubst'ing \${ML_INSTALL_XYZ} templates"
+  eval "python3.9 /opt/zm_ml/src/examples/install.py --dir-config /zm_ml/conf --dir-data /zm_ml/data --dir-log /zm_ml/logs --config-only --install-type server --debug --user www-data --group www-data"
+fi
+if [[ ! -f /zm_ml/conf/secrets.yml ]]; then
+  echo "[${program_name}] Creating default ZM ML Server SECRETS file"
+  eval "python3.9 /opt/zm_ml/src/examples/install.py --dir-config /zm_ml/conf --dir-data /zm_ml/data --dir-log /zm_ml/logs --secrets-only --install-type server --debug --user www-data --group www-data"
+fi
+
+# Original logic follows
+
+
+if [[ ${FORCE_MODELS} == 'true' || "${FORCE_MODELS}" -eq 1 || "${FORCE_MODELS}" == "1" ]]; then
+  echo "[${program_name}] FORCE_MODELS=true :: existing models will be overwritten if downloaded..."
+  force_models='--force-models'
+  else
+    force_models=''
+fi
+
+if [[ ! -d /zm_ml/data/models/yolo && ! -d /zm_ml/data/models/coral_tpu ]]; then
+  echo "[${program_name}] No yolo and coral_tpu model directory found, downloading ALL available models..."
+#  DL_ALL_MODELS='true'
+fi
+
+if [[ "${DL_ALL_MODELS}" == 'true' || "${DL_ALL_MODELS}" -eq 1 || "${DL_ALL_MODELS}" == "1" ]]; then
+    echo "[${program_name}] DL_ALL_MODELS=${DL_ALL_MODELS} :: Downloading ALL ML models..."
+    eval python3 /opt/zm_ml/src/examples/install.py --dir-config /zm_ml/conf --dir-data /zm_ml/data --all-models --only-models ${force_models} --install-type server --debug --user www-data --group www-data
+    # Directory structure
+    chown -R www-data:www-data /zm_ml
+    chmod -R 755 /zm_ml
+fi
+
+[[ -z "${ML_SERVER_CONF_FILE}" ]] && ML_SERVER_CONF_FILE='/zm_ml/conf/server.yml'
+MLAPI_FLAGS=(--config "${ML_SERVER_CONF_FILE}")
+
+echo "[${program_name}] Starting ZM_ML Server (ML API) with FLAGS: ${MLAPI_FLAGS[*]}"
+
+s6-setuidgid www-data zmmlapi "${MLAPI_FLAGS[@]}"

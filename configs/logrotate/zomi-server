@@ -1,0 +1,17 @@
+/opt/zomi/server/logs/*.log {
+    missingok
+    notifempty
+    sharedscripts
+    delaycompress
+    compress
+    # copytruncate is important if you are actively tailing the log file
+    copytruncate
+#    postrotate
+#        echo "Put a command here" >>/dev/null 2>&1 || :
+#    endscript
+#- User/Group
+#    su root root
+    daily
+    rotate 7
+    maxage 7
+}
