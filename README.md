@@ -32,6 +32,7 @@ The [install.py](examples/install.py) file creates a venv for the project and in
 Pytorch and onnxruntime are installed by default, face-recognition with D-Lib and opencv are optional (`--face-recognition` and `--opencv`).
 
 ## Requirements
+- Clone this repo and cd into the repo directory.
 - System packages (package names from debian based system)
     - `python3-venv`
     - `python3-pip`
@@ -47,7 +48,9 @@ Pytorch and onnxruntime are installed by default, face-recognition with D-Lib an
 
 >[!CAUTION]
 > the pypi (pip) based `pycoral` libs only support python 3.7-3.9. If you are using python 3.10, you will need 
-> to install the `pycoral` libs manually, please see: [this issue](https://github.com/google-coral/pycoral/issues/85) and read through the whole comment thread 
+> to install the `pycoral` libs manually, please see: [this issue](https://github.com/google-coral/pycoral/issues/85) 
+> and read through the whole comment thread. You could also build the `pycoral` libs from source for python 3.11+ 
+> using the method and hacks in that issue thread. 
 
 ### Processor type
 >[!IMPORTANT]
