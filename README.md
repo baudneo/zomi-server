@@ -84,6 +84,8 @@ The server has a built-in Swagger UI for testing the API. It is available at the
 
 >[!IMPORTANT]
 > All requests require a valid JWT token. If you havent turned on auth OR created any users. Any username:password combo will work.
+> Make sure to authorize first!
+>![Authorize in Swagger UI](docs/assets/zomi-server_auth-button.png)
 
 # User authentication
 >[!NOTE]
