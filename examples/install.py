@@ -179,7 +179,7 @@ available_models = {
 logger = logging.getLogger("zomiAPI-inst")
 logger.setLevel(logging.INFO)
 log_formatter = logging.Formatter(
-    "%(asctime)s.%(msecs)04d %(name)s[%(process)s] %(levelname)s %(module)s:%(lineno)d -> %(message)s",
+    "%(asctime)s.%(msecs)d %(name)s[%(process)s] %(levelname)s %(module)s:%(lineno)d -> %(message)s",
     "%m/%d/%y %H:%M:%S",
 )
 console = logging.StreamHandler(stream=sys.stdout)
@@ -396,7 +396,7 @@ def parse_cli():
         "--gpu",
         dest="gpu",
         help="Install GPU only packages for pytorch (only choose one)",
-        choices=("cuda12.1", "cuda11.8", "rocm5.6"),
+        choices=("cuda12.1", "cuda11.8", "rocm6.0"),
         default=None,
         nargs=1,
     )
@@ -1159,7 +1159,7 @@ class ZoMiEnvBuilder(venv.EnvBuilder):
                     stdout=subprocess.PIPE,
                 )
             except subprocess.CalledProcessError as e:
-                logger.error(f"{self.lp} Error installing onnxruntime!")
+                logger.error(f"{self.lp} Error installing zomi-server!")
                 logger.error(e)
                 if e.stderr:
                     logger.error(e.stderr)
@@ -1197,7 +1197,7 @@ class ZoMiEnvBuilder(venv.EnvBuilder):
         # if gpu, install proper torch and torchvision -
         # Cuda 11.8 = pip3 install torch torchvision --index-url https://download.pytorch.org/whl/cu118
         # Cuda 12.1 = pip3 install torch torchvision
-        # ROCm5.6 = pip3 install torch torchvision --index-url https://download.pytorch.org/whl/rocm5.6
+        # ROCm6.0 = pip3 install torch torchvision --index-url https://download.pytorch.org/whl/rocm6.0
         # cpu =  pip3 install torch torchvision --index-url https://download.pytorch.org/whl/cpu
         _a = list(_args)
         if cpu_only:
@@ -1211,9 +1211,9 @@ class ZoMiEnvBuilder(venv.EnvBuilder):
 
             if gpu_args == ["cuda12.1"]:
                 pass
-            elif gpu_args == ["rocm5.6"]:
+            elif gpu_args == ["rocm6.0"]:
                 _a.append("--index-url")
-                _a.append("https://download.pytorch.org/whl/rocm5.6")
+                _a.append("https://download.pytorch.org/whl/rocm6.0")
             elif gpu_args == ["cuda11.8"]:
                 _a.append("--index-url")
                 _a.append("https://download.pytorch.org/whl/cu118")
