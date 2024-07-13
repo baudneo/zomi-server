@@ -84,7 +84,7 @@ logger.info(
 
 app = FastAPI(
     debug=True,
-    title="Machine Learning API - © dAIngerous consulting 2023",
+    title="Machine Learning API",
     version=__version__,
     description="A blazing fast API for running Machine Learning models on images",
 )
