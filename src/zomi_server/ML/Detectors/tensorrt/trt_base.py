@@ -355,7 +355,6 @@ class TensorRtDetector:
             logger.debug(
                 f"perf:{LP} '{self.name}' inference took {time.time() - detection_timer:.5f} seconds"
             )
-
         b_boxes, confs, labels = self.process_output(list(data))
         # logger.debug(f"{LP} {lbls = } -- {confs = } -- {b_boxes = }")
         colors: Optional[dict] = None
@@ -480,157 +479,77 @@ class TensorRtDetector:
     ) -> Tuple[List, List, List]:
         return_empty: bool = False
         boxes: np.ndarray = np.array([], dtype=np.float32)
+        _boxes: np.ndarray = np.array([], dtype=np.float32)
         scores: np.ndarray = np.array([], dtype=np.float32)
-        labels: np.ndarray = np.array([], dtype=np.int32)
-        nms, conf = self.options.nms, self.options.confidence
+        class_ids: np.ndarray = np.array([], dtype=np.int32)
         if output:
-            # Fixme: allow for custom class length (80 is for COCO)
-            output_shape = [o.shape for o in output]
-            # prettrained: (1, 84, 8400)  --- v8
-            # dfo with 2 classes and 1 background: (1, 6, 8400) --- v8
-            legacy_shape = [(1, 8400, 4), (1, 8400, 80)]
-            new_flat_shape = [(1, 8400, 80), (1, 8400, 4)]
+            output_type = self.config.output_type
             num_outputs = len(output)
-            logger.debug(
-                f"{LP} '{self.name}' output shapes ({num_outputs}): {output_shape}"
-            )
-            shape_str = ""
-            # Deci AI super-gradients new model.export() has FLAT (n, 7) and BATCHED outputs
-            if num_outputs == 1:
-                if isinstance(output[0], np.ndarray):
-                    # prettrained: (1, 84, 8400)
-                    # dfo with 2 classes and 1 background: (1, 6, 8400)
-                    if output[0].shape[0] == 1 and output[0].shape[2] == 8400:
-                        # v8
-                        # (1, 84, 8400) -> (8400, 84)
-                        predictions = np.squeeze(output[0]).T
-                        logger.debug(
-                            f"{LP} '{self.name}' yolov8 output shape = (1, <X>, 8400) detected!"
-                        )
-                        # logger.debug(f"{LP} predictions.shape = {predictions.shape} --- {predictions =}")
-                        # Filter out object confidence scores below threshold
-                        scores = np.max(predictions[:, 4:], axis=1)
+            output_shape = [o.shape for o in output]
+            logger.debug(f"{LP} '{self.name}' output_type: '{output_type.value}' / shapes ({num_outputs})"
+                         f": {output_shape}")
+            if not output_type:
+                logger.error(f"{LP} '{self.name}' no output_type defined, cannot process model output into "
+                             f"confidences, bounding boxes and class ids!")
+                return_empty = True
 
-                        if len(scores) == 0:
-                            return_empty = True
+            else:
+                # yolov8 pretrained: (1, 84, 8400)
+                # yolov10 pretrained: (1, 300, 6)
+                # yolo-nas: depends on legacy or new flat/batched
+                # FLAT (n, 7) and BATCHED outputs
+                if output_type.value == "yolov8":
+                    from ..process_output.yolov8 import process_output
+                    _boxes, scores, class_ids = process_output(output[0])
 
-                        # Get bounding boxes for each object
-                        boxes = self.extract_boxes(predictions)
-                        # Get the class ids with the highest confidence
-                        class_ids = np.argmax(predictions[:, 4:], axis=1)
-                    elif len(output[0].shape) == 2 and output[0].shape[1] == 7:
-                        logger.debug(
-                            f"{LP} YOLO-NAS model.export() FLAT output detected!"
-                        )
-                        # YLO-NAS .export FLAT output = (n, 7)
-                        flat_predictions = output[0]
-                        # pull out the class index and class score from the predictions
-                        # and convert them to numpy arrays
-                        flat_predictions = np.array(flat_predictions)
-                        class_ids = flat_predictions[:, 6].astype(int)
-                        scores = flat_predictions[:, 5]
-                        # pull the boxes out of the predictions and convert them to a numpy array
-                        boxes = flat_predictions[:, 1:4]
+                elif output_type.value == "yolonas":
+                    from ..process_output.yolo_nas import process_output
+                    _boxes, scores, class_ids = process_output(output)
 
-            elif num_outputs == 2:
-                if output_shape == legacy_shape or output_shape == new_flat_shape:
-                    # NAS - .convert_to_onnx() output = [(1, 8400, 4), (1, 8400, 80)] / NEW "FLAT" = [(1, 8400, 80), (1, 8400, 4)]
-                    if output_shape == legacy_shape:
-                        shape_str = "convert_to_onnx() [Legacy]"
-                        _boxes, raw_scores = output
+                elif output_type.value == "yolov10":
+                    from ..process_output.yolov10 import process_output
+                    _boxes, scores, class_ids = process_output(output[0])
 
-                    elif output_shape == new_flat_shape:
-                        shape_str = "export() [NEW Flat]"
-                        raw_scores, _boxes = output
-                    else:
-                        shape_str = "<UNKNOWN>"
-                        _boxes, raw_scores = output
-                    # YOLO-NAS
-                    logger.debug(f"{LP} YOLO-NAS model.{shape_str} output detected!")
-                    _boxes: np.ndarray
-                    raw_scores: np.ndarray
-                    # get boxes and scores from outputs
-                    # find max from scores and flatten it [1, n, num_class] => [n]
-                    scores = raw_scores.max(axis=2).flatten()
-                    if len(scores) == 0:
-                        return_empty = True
-                    # squeeze boxes [1, n, 4] => [n, 4]
-                    _boxes = np.squeeze(_boxes, 0)
-                    boxes = self.rescale_boxes(_boxes)
-                    # find index from max scores (class_id) and flatten it [1, n, num_class] => [n]
-                    class_ids = np.argmax(raw_scores, axis=2).flatten()
-                else:
-                    logger.warning(
-                        f"{LP} '{self.name}' has unknown output shape: {output_shape}, should be: Legacy: {legacy_shape} or New Flat: {new_flat_shape}"
-                    )
-            elif num_outputs == 4:
-                # NAS model.export() batch output len = 4
-                # num_predictions [B, 1]
-                # pred_boxes [B, N, 4]
-                # pred_scores [B, N]
-                # pred_classes [B, N]
-                # Here B corresponds to batch size and N is the maximum number of detected objects per image
-                if (
-                    len(output[0].shape) == 2
-                    and len(output[1].shape) == 3
-                    and len(output[2].shape) == 2
-                    and len(output[3].shape) == 2
-                ):
-                    logger.debug(
-                        f"{LP} YOLO-NAS model.export() BATCHED output detected!"
-                    )
-                    batch_size = output[0].shape[0]
-                    max_detections = output[1].shape[1]
-                    num_predictions, pred_boxes, pred_scores, pred_classes = output
-                    assert (
-                        num_predictions.shape[0] == 1
-                    ), "Only batch size of 1 is supported by this function"
-
-                    num_predictions = int(num_predictions.item())
-                    boxes = pred_boxes[0, :num_predictions]
-                    scores = pred_scores[0, :num_predictions]
-                    class_ids = pred_classes[0, :num_predictions]
         else:
+            logger.critical(f"{LP} '{self.name}' no output from model detected!")
+            return_empty = True
+
+        if not len(scores):
             return_empty = True
 
         if return_empty:
             logger.warning(f"{LP} '{self.name}' return_empty = True !!")
             return [], [], []
 
-        indices = cv2.dnn.NMSBoxes(boxes, scores, conf, nms)
-        if len(indices) == 0:
-            logger.debug(
-                f"{LP} no detections after filter by NMS ({nms}) and confidence ({conf})"
-            )
-            return [], [], []
+        # rescale boxes
+        boxes = self.rescale_boxes(_boxes)
+        # todo: make NMS optional, YOLO v10 is NMS free so,
+        #  we dont want to incur the performance penalty
+        do_nms = True
+        if do_nms is True:
+            nms, conf = self.options.nms, self.options.confidence
+            indices = cv2.dnn.NMSBoxes(boxes, scores, conf, nms)
+            if len(indices) == 0:
+                logger.debug(
+                    f"{LP} no detections after filter by NMS ({nms}) and confidence ({conf})"
+                )
+                return [], [], []
 
-        boxes = (boxes[indices],)
-        scores = scores[indices]
-        class_ids = class_ids[indices]
-        if isinstance(boxes, tuple):
-            if len(boxes) == 1:
-                boxes = boxes[0]
-        if isinstance(scores, tuple):
-            if len(scores) == 1:
-                scores = scores[0]
+            boxes = boxes[indices]
+            scores = scores[indices]
+            class_ids = class_ids[indices]
+            if isinstance(boxes, tuple):
+                if len(boxes) == 1:
+                    boxes = boxes[0]
+            if isinstance(scores, tuple):
+                if len(scores) == 1:
+                    scores = scores[0]
+
         return (
             boxes.astype(np.int32).tolist(),
             scores.astype(np.float32).tolist(),
             class_ids.astype(np.int32).tolist(),
         )
-
-    def extract_boxes(self, predictions):
-        """Extract boxes from predictions, scale them and convert from xywh to xyxy format"""
-        # Extract boxes from predictions
-        boxes = predictions[:, :4]
-        logger.debug(f"{LP} '{self.name}' {boxes.shape = }")
-        # Scale boxes to original image dimensions
-        boxes = self.rescale_boxes(boxes)
-        # Convert boxes to xyxy format
-        from ..onnx_runtime import xywh2xyxy
-
-        boxes = xywh2xyxy(boxes)
-        return boxes
 
     def rescale_boxes(self, boxes):
         """Rescale boxes to original image dimensions"""
