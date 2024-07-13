@@ -47,6 +47,12 @@ from ..ML.Detectors.color_detector import ColorDetector
 logger = logging.getLogger(SERVER_LOGGER_NAME)
 
 
+class OutputType(str, enum.Enum):
+    yolonas = "yolonas"
+    yolov8 = "yolov8"
+    yolov10 = "yolov10"
+
+
 class Testing(BaseModel):
     enabled: bool = Field(False)
     substitutions: Dict[str, str] = Field(default_factory=dict)
@@ -756,7 +762,7 @@ class ORTModelConfig(BaseModelConfig):
         repr=False,
         exclude=True,
     )
-    output_shape: Optional[List[Tuple]] = None
+    output_type: Optional[OutputType] = None
     gpu_idx: Optional[int] = 0
     extra: Optional[str] = None
 
@@ -788,7 +794,7 @@ class TRTModelConfig(BaseModelConfig):
     square: Optional[bool] = Field(
         False, description="Zero pad the image to be a square"
     )
-    output_shape: Optional[Tuple] = None
+    output_type: Optional[OutputType] = None
     gpu_idx: Optional[int] = 0
     lib_path: Optional[Path] = None
 
