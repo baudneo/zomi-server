@@ -45,12 +45,12 @@ Pytorch and onnxruntime are installed by default, face-recognition with D-Lib an
 - `--user` and `--group` arguments are required
 - `--cpu` or `--gpu` argument is required
 
-[!CAUTION]
+>[!CAUTION]
 > the pypi (pip) based `pycoral` libs only support python 3.7-3.9. If you are using python 3.10, you will need 
 > to install the `pycoral` libs manually, please see: [this issue](https://github.com/google-coral/pycoral/issues/85) and read through the whole comment thread 
 
 ### Processor type
-[!IMPORTANT]
+>[!IMPORTANT]
 > The `--cpu` **or** `--gpu <choice>` argument is required. 
 
 `--gpu` choices:
@@ -58,11 +58,11 @@ Pytorch and onnxruntime are installed by default, face-recognition with D-Lib an
 - `cuda11.8`
 - `rocm6.0`
 
-[!NOTE]
+>[!NOTE]
 > The `--cpu` argument does not require a value, it is a flag to install the CPU based packages.
 
 ### Install as user
-[!IMPORTANT]
+>[!IMPORTANT]
 > The `--user` and `--group` arguments are required. 
 
 These are the user and group that the server will run as.
@@ -76,17 +76,17 @@ python3 examples/install.py --cpu --debug --dry-run --user <username> --group <g
 python3 examples/install.py --gpu cuda12.1 --debug --dry-run --user <username> --group <groupname>
 ```
 
-[!NOTE]
+>[!NOTE]
 > `--dry-run` will show the commands that will be run without actually running them.
 
 # Swagger UI
 The server has a built-in Swagger UI for testing the API. It is available at the server root: `http://<server>:<port>/`
 
-![IMPORTANT]
+>![IMPORTANT]
 > All requests require a valid JWT token. If you havent turned on auth OR created any users. Any username:password combo will work.
 
 # User authentication
-[!NOTE]
+>[!NOTE]
 > You can enable and disable authentication, but all requests must have a valid JWT token. When authentication is disabled,
 > the login endpoint will accept any username:password combo and supply a valid usable token.
 
