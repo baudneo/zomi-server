@@ -82,7 +82,7 @@ python3 examples/install.py --gpu cuda12.1 --debug --dry-run --user <username> -
 # Swagger UI
 The server has a built-in Swagger UI for testing the API. It is available at the server root: `http://<server>:<port>/`
 
->![IMPORTANT]
+>[!IMPORTANT]
 > All requests require a valid JWT token. If you havent turned on auth OR created any users. Any username:password combo will work.
 
 # User authentication
