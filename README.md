@@ -77,7 +77,7 @@ These are the user and group that the server will run as.
 ### OpenCV
 - `--opencv` installs the opencv-contrib-python package (no CUDA support)
 **opencv is a requirement for zomi-server to run**.
->![TIP]
+>[!TIP]
 > Advanced users can compile opencv with CUDA/cuDNN support and link it into the venv to use GPU acceleration in opencv.
 > A doc will be written outlining the linking process, there are several build tutorials online.
 
@@ -106,7 +106,7 @@ python3 examples/install.py --gpu cuda11.8 --debug --opencv --dry-run --user <us
 python3 examples/install.py --gpu rocm6.0 --debug --opencv --dry-run --user <username> --group <groupname>
 ```
 
->[!NOTE]
+>[!TIP]
 > `--dry-run` will show the commands that will be run without actually running them.
 
 # Swagger UI
@@ -122,7 +122,7 @@ serves as self-explanatory documentation.
 >![Authorize in Swagger UI](docs/assets/zomi-server_auth-button.png)
 
 # User authentication
->[!CRITICAL]
+>[!IMPORTANT]
 > You can enable and disable authentication, but all requests must have a valid JWT token. When authentication is disabled,
 > the login endpoint will accept any username:password combo and supply a valid usable token.
 

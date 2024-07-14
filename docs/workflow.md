@@ -7,6 +7,10 @@ The server will not start if the config file is missing or malformed.
 The [example_server.yml](../configs/example_server.yml) file is used as a template for the `install.py` script. 
 You can also read the comments in the file for more information until proper documentation is written.
 
+### Models
+Models are defined in the config file `models:` section. Model names should be unique and are assigned a UUID on startup.
+
+The [example_server.yml](../configs/example_server.yml?plain=1#L127)
 ## Secrets (secrets.yml)
 >[!NOTE]
 > Secrets are actually **Substitution Variables**. They are used in the config file 
@@ -15,6 +19,8 @@ You can also read the comments in the file for more information until proper doc
 Secrets are stored in a separate file. This file is not required for the server to start if it is not 
 defined in the config file (`substitutions:IncludeFile:`). This is a convenience feature to keep sensitive
 information out of the main config file for when you need to share the config file with others.
+
+
 
 ## Requests
 >[!NOTE]
@@ -50,6 +56,6 @@ information out of the main config file for when you need to share the config fi
 ### Available Models
 >[!NOTE]
 > There are several different available model endpoints based on the model type, processor or framework and one that shows all models.
-- 
+
 - A request is made to the server, regardless of if auth is enabled or not, the server will check the validity of the token
 - the server will return a list of available models in JSON (See [Swagger UI](../README.md#swagger-ui) to view the JSON response schema and available endpoints)
