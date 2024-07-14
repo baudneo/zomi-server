@@ -913,15 +913,7 @@ class TorchModelConfig(BaseModelConfig):
 
     pretrained: Optional[PreTrained] = Field(default_factory=PreTrained)
 
-    # this is not to be configured by the user. It is parsed classes from the labels file (or default if no file).
-    labels: List[str] = Field(
-        default=None,
-        description="model labels parsed into a list of strings",
-        repr=False,
-        exclude=True,
-    )
-
-    _validate_labels = field_validator("labels")(validate_model_labels)
+    _validate_labels = field_validator("labels", check_fields=False)(validate_model_labels)
     _validate = field_validator("input", "classes", mode="before")(str2path)
 
 
