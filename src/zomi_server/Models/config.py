@@ -47,6 +47,13 @@ from ..ML.Detectors.color_detector import ColorDetector
 logger = logging.getLogger(SERVER_LOGGER_NAME)
 
 
+class NMSOptions(BaseModel):
+    enabled: bool = Field(True, description="Enable Non-Maximum Suppression")
+    threshold: Optional[float] = Field(
+        0.4, ge=0.0, le=1.0, description="Non-Maximum Suppression Threshold"
+    )
+
+
 class OutputType(str, enum.Enum):
     yolonas = "yolonas"
     yolov8 = "yolov8"
@@ -429,20 +436,16 @@ class ServerSettings(BaseModel):
 
 class BaseModelOptions(BaseModel):
     confidence: Optional[float] = Field(
-        0.2, ge=0.0, le=1.0, descritpiton="Confidence Threshold"
+        0.2, ge=0.0, le=1.0, description="Confidence Threshold"
     )
 
 
 class ORTModelOptions(BaseModelOptions):
-    nms: Optional[float] = Field(
-        0.4, ge=0.0, le=1.0, description="Non-Maximum Suppression Threshold (IoU)"
-    )
+    nms: NMSOptions = Field(default_factory=NMSOptions, description="NMS Options")
 
 
 class TRTModelOptions(BaseModelOptions):
-    nms: Optional[float] = Field(
-        0.4, ge=0.0, le=1.0, description="Non-Maximum Suppression Threshold (IoU)"
-    )
+    nms: NMSOptions = Field(default_factory=NMSOptions, description="NMS Options")
 
 
 class CV2YOLOModelOptions(BaseModelOptions):
@@ -452,12 +455,6 @@ class CV2YOLOModelOptions(BaseModelOptions):
 
 
 class TPUModelOptions(BaseModelOptions, extra="allow"):
-    class NMSOptions(BaseModel):
-        enabled: bool = Field(True, description="Enable Non-Maximum Suppression")
-        threshold: Optional[float] = Field(
-            0.4, ge=0.0, le=1.0, description="Non-Maximum Suppression Threshold"
-        )
-
     nms: NMSOptions = Field(default_factory=NMSOptions, description="NMS Options")
 
 
