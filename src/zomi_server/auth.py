@@ -72,6 +72,12 @@ class ZoMiUser(BaseModel):
     roles: Optional[List[Role]] = Field(None, description="ZoMi Permissions (WIP)")
     disabled: Optional[bool] = Field(False, description="User Disabled")
 
+    def __repr__(self):
+        return f"ZoMiUser(name={self.username}, disabled={self.disabled}, password='******', roles='<sanitized>')"
+
+    def __str__(self):
+        return self.__repr__()
+
 
 class Token(BaseModel):
     """Represents a JWT token with some extra data"""
