@@ -38,9 +38,6 @@ uvicorn:
     - "127.0.0.1"
 
   debug: no
-  reload: no
-#  reload_dirs:
-#    - '/example/dir'
 
 system:
   # - Path where the system will store configuration files
@@ -127,10 +124,11 @@ logging:
 models:
   # - The model name is how you will call it in the API request
 
-  # OpenCV Model Example
+  # OpenCV DarkNet Model Example
   - name: YOLOv4  # Name will be lower cased, spaces are preserved; 'yolov4'
     enabled: no
     # - Framework to use: opencv, trt, ort, torch, coral, http, face_recognition, alpr
+    # - trt = tensor rt, ort = onnxruntime
     framework: opencv
     # - sub_framework is the various backends the framework can make use of
     # - opencv can use darknet, onnx (Although ort framework is faster)
@@ -143,22 +141,24 @@ models:
     # - Config file is optional, only .weights input requires a config file.
     input: "${MODEL_DIR}/yolo/yolov4_new.weights"  # Optional. This is the model file itself.
     config: "${MODEL_DIR}/yolo/yolov4_new.cfg"  # Optional (.weights requires .cfg, .onnx and .tflite does not).
-    #classes: "${MODEL_DIR}/coco.names"  # Optional. Default is COCO 2017 classes.
+    #classes: "${MODEL_DIR}/coco.names"  # Optional. Default is COCO 2017 (80) classes.
 
     # - Image will be resized to these dimensions before being passed to the model.
     # - what was the model trained on? 416x416? 512x512? 1024x1024?
     height: 512  # Optional. Defaults to 416.
     width: 512  # Optional. Defaults to 416.
     # - Square the image by zero-padding the shorter side to match the longer side before resize
-    # - 1920x1080 -> 1920x1920 with a black bg where the new pixels are
+    # - 1920x1080 -> 1920x1920 with a black bg where the new pixels are (letterboxing)
     square: no  # Optional. Defaults to False.
 
     detection_options:
+      # - Confidence threshold for detection (recommended 0.2-0.5)
       confidence: 0.2
+        # - Non Max Suppressive threshold, lower will filter more overlapping bounding boxes out.
       nms: 0.4
 
-  # PyTorch Example
-  - name: torch test
+  # PyTorch Example (very rudimentary, basics plumbed in)
+  - name: TORch tESt  # lower-cased, spaces preserved = torch test
     description: testing pretrained torch model
     enabled: no
     framework: torch
@@ -186,14 +186,17 @@ models:
       confidence: 0.2
       nms: 0.65
 
-  # - TPU Model Example [pycoral only supports Python 3.7-3.9]
+  # - TPU Model Example [pre-built google pycoral only supports Python 3.7-3.9]
+  # - There is a 3.10 prebuilt available from a user on GitHub, but it is not official.
+  # - You can also build it yourself for python 3.11+.
+  # - See https://github.com/google-coral/pycoral/issues/85 for 3.10 prebuilt repo and build instructions (including required hacks)
   - name: tpu
     description: "SSD MobileNet V2 TensorFlow2 trained"
     enabled: no
 
     framework: coral
     type_of: object
-    # - Change to TPU!
+    # - Will always be tpu
     processor: tpu
 
     input: "${MODEL_DIR}/coral_tpu/tf2_ssd_mobilenet_v2_coco17_ptq_edgetpu.tflite"
@@ -210,7 +213,7 @@ models:
       confidence:
         0.2
 
-  # TensorRT Model Example (User must install TensorRT)
+  # TensorRT Model Example (User must install TensorRT and compile their engine model)
   - name: yolo-nas-s trt
     enabled: no
     description: "TensorRT optimized YOLO-NAS-S pretrained model"
@@ -219,13 +222,20 @@ models:
     framework: trt
 
     type_of: object
+    # - Only ort and trt support output_type
+    # - Tells the server how to process the output from the model into confidence, bounding box, and class id
+    output_type: yolonas
 
+    # - Make sure to set the proper model input size or it will throw errors!
     height: 640
     width: 640
 
     detection_options:
       confidence: 0.31
-      nms: 0.31
+      # ort and trt support nms enabled/disabled (YOLO v10 does not need NMS)
+      nms:
+        enabled: yes
+        threshold: 0.44
 
   # ONNX Runtime Example
   - name: yolov8s onnx
@@ -238,10 +248,16 @@ models:
 
     processor: gpu
 #    gpu_idx: 0
+    # - Possible ROCm support *WIP*
 #    gpu_framework: cuda
 
     input: "/shared/models/yolo/yolov8s.onnx"
     #classes: path/to/classes.file
+
+    # - Only ort and trt support output_type
+    # - Tells the server how to process the output from the model into confidence, bounding box, and class id
+    # - [yolonas, yolov8, yolov10]
+    output_type: yolov8
 
     # ** NOTE: MAKE SURE to set the proper model input size or it will throw errors!
     height: 640
@@ -249,9 +265,12 @@ models:
 
     detection_options:
       confidence: 0.33
-      nms: 0.44
+      # ort and trt support nms enabled/disabled (YOLO v10 does not need NMS)
+      nms:
+        enabled: yes
+        threshold: 0.44
 
-  # AWS Rekognition Example
+  # AWS Rekognition Example *WIP*
   - name: aws
     description: "AWS Rekognition remote HTTP detection (PAID per request!)"
     enabled: no
@@ -319,7 +338,7 @@ models:
       # - Max width of image to feed the model (scaling applied)
       max_size: 600
 
-  # - OpenALPR Model Example
+  # - OpenALPR local binary Example
   - name: "openalpr cpu"
     # ** NOTE:
     # - You need to understand how to skew and warp images to make a plate readable by OCR, see openalpr docs.
