@@ -174,6 +174,8 @@ models:
     # - Square the image by zero-padding the shorter side to match the longer side before resize
     # - 1920x1080 -> 1920x1920 with a black bg where the new pixels are (letterboxing)
     square: no  # Optional. Defaults to False.
+    # - Override global color detection
+    detect_color: no  # Optional. Defaults to False.
 
     detection_options:
       # - Confidence threshold for detection (recommended 0.2-0.5)
