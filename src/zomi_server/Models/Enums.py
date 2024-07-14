@@ -58,7 +58,6 @@ class ModelFrameWork(str, Enum):
     DEEPFACE = "deepface"
     ALPR = "alpr"
     FACE_RECOGNITION = "face_recognition"
-    REKOGNITION = "rekognition"
     ORT = "ort"
     TRT = "trt"
 
