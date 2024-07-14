@@ -637,7 +637,7 @@ class BaseModelConfig(BaseModel):
     enabled: bool = Field(True, description="model enabled")
     description: str = Field(None, description="model description")
     framework: ModelFrameWork = Field(
-        default=ModelFrameWork.OPENCV, description="model framework"
+        default=ModelFrameWork.ORT, description="model framework"
     )
     type_of: ModelType = Field(
         ModelType.OBJECT,
