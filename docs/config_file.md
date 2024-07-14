@@ -453,7 +453,7 @@ This is used by the zomi-client to determine how to filter the output from the m
 
 >[!NOTE]
 > The `type_of` key can change what model keys are available! Different combinations of `type_of`, 
-> `framework` and `sub-framework` can result in different model keys being available.
+> `framework` and `sub_framework` can result in different model keys being available.
 
 ### `framework`
 - `framework: <string>` 
@@ -570,7 +570,7 @@ color:
     - bicycle
 ```
 
-# Models
+# Models / Frameworks
 Models are defined in the config file `models:` section. Model names should be unique and are assigned a UUID on startup.
 
 The above breakdown/example in the [configuration file > models](#models-section) section shows keys 
@@ -578,9 +578,9 @@ that can be used across all model types. This section will show the specific key
 or clarification of allowed values.
 
 >[!IMPORTANT]
-> Different `framework`, `type_of` and `sub-framework` values will result in different model keys being available.
+> Different `framework`, `type_of` and `sub_framework` values will result in different model keys being available.
 
-## Pytorch model config
+## `torch` model config
 There is basic pretrained model support for PyTorch models. User supplied models are not supported at this time.
 
 ### `pretrained` subsection
@@ -651,9 +651,12 @@ The `nms` subsection is where you define the Non-Max Suppressive settings.
 The `enabled` key is used to enable or disable Non-Max Suppressive filtering.
 
 ##### `threshold`
-- `threshold: <float:0.01-1.0>`
+- `threshold: <float>`
+- Range: `0.01 - 1.0`
+- Default: `0.35`
 
-The `threshold` key is used to set the Non-Max Suppressive threshold. Lower will filter more overlapping bounding boxes out.
+The `threshold` key is used to set the Non-Max Suppressive threshold. Lower will filter more 
+overlapping bounding boxes out.
 
 ### Example
 ```yaml
@@ -675,16 +678,17 @@ models:
       confidence: 0.2
       nms: 
         enabled: yes
-        threshold: 0.65
+        threshold: 0.332
 ```
 
-## OpenCV model config
+## `opencv` model config
 The OpenCV model config is used for models that are supported by OpenCV. Currently, DarkNet is supported 
-and so is basic logic for ONNX models.
+and so is basic logic for ONNX models. Future work will include all `sub_framework` types achieving parity with 
+the DarkNet `sub_framework`.
 
 >[!WARNING]
-> There is basic ONNX support due to 4.8.x having ONNX model issues. 
-> There was an open issue which may be resolved by now.
+> There is basic ONNX support due to < 4.8.x having ONNX model issues. 
+> There were open issues, which may be resolved by now.
 
 ### `input`
 - `input: <string:path>` **REQUIRED**
@@ -766,9 +770,15 @@ The `gpu_idx` key is used to set the index of the GPU to use.
 The `cuda_fp_16` key is used to enable or disable FP16 inference on Nvidia GPUs for this model.
 
 ### `output_type`
+>[!WARNING]
+> **This is a WIP feature and is not implemented yet.**
+
 - `output_type: <string>`
 - `yolov3` or `yolov4` or `yolov7` or `yolov8` or `yolonas` or `yolov10`
 - Default: None
+
+The `output_type` key is used to set the output type for the model. This is used to tell the server 
+how to process the output from the model into confidence, bounding box, and class id.
 
 ### Example
 ```yaml
@@ -794,44 +804,247 @@ models:
       nms: 0.4
 ```
 
-## TPU model config
+## `ort` (ONNXRuntime) model config
+The `ort` `framework` is used for ONNX models that are supported by ONNXRuntime.
+
+### `gpu_idx`
+- `gpu_idx: <int>`
+- Default: 0
+
+The `gpu_idx` key is used to set the index of the GPU to use.
+
+>[!TIP]
+> If using multiple GPUs, set the index of the GPU to use. Ignored if `processor` is not `gpu`.
+> To get the index and name of each device:
+> `python3 -c 'import torch; print(f"Available GPUs: {torch.cuda.device_count()}") [print(f"index: {i} - {torch.cuda.get_device_name(i)}") for i in range(torch.cuda.device_count())]'`
+
+### `gpu_framework`
+>[!WARNING]
+> **This is a WIP feature and is not implemented yet.**
+
+- `gpu_framework: <string>`
+- `cuda` or `rocm` *WIP*
+
+The `gpu_framework` key is used to set the GPU framework to use. Hopefully we get ROCm support for 
+torch and onnxruntime (`ort`)
+
+### `output_type`
+- `output_type: <string>`
+- `yolov3` or `yolov4` or `yolov7` or `yolov8` or `yolonas` or `yolov10`
+- Default: None
+
+The `output_type` key is used to set the output type for the model. This is used to tell the server
+how to process the output from the model into confidence, bounding box, and class id.
+
+### `height` and `width`
+- `height: <int>` and `width: <int>`
+- Default: `416`
+
+The *input* `height` and `width` keys are used to set the image dimensions
+
+### `detection_options` subsection
+The `detection_options` subsection is where you define the detection settings for the model.
+
+#### `nms` subsection
+The `nms` subsection is where you define the Non-Max Suppressive settings.
+
+##### `enabled`
+- `enabled: <string>`
+- `yes` or `no`
+- Default: `yes`
+
+The `enabled` key is used to enable or disable Non-Max Suppressive filtering.
+
+##### `threshold`
+- `threshold: <float>`
+- Range: `0.01 - 1.0`
+- Default: `0.35`
+
+The `threshold` key is used to set the Non-Max Suppressive threshold. Lower will filter more
+overlapping bounding boxes out.
+
+### Example
+  ```yaml
+models:
+  - name: yolov8s onnx
+    description: "Ultralytics YOLO v8s pretrained ONNX model on onnxruntime"
+    enabled: no
+    framework: ort
+    type_of: object
+    processor: gpu
+    #gpu_idx: 0
+    # - Possible ROCm support *WIP*
+    #gpu_framework: cuda
+    input: "/shared/models/yolo/yolov8s.onnx"
+    #classes: path/to/classes.file
+    output_type: yolov8
+    height: 640
+    width: 640
+    detection_options:
+      confidence: 0.33
+      nms:
+        enabled: yes
+        threshold: 0.44
+```
+
+## `coral` (TPU) model config
+The `coral` `framework` is specifically for the coral.ai Edge TPU. 
+Only the USB version has been tested with zomi-server.
+
+>[!IMPORTANT]
+> The pre-built google `pycoral` library only supports Python 3.7-3.9
+> There is a 3.10 prebuilt available from a user on GitHub, but it is not official.
+> You can also build `pycoral` yourself for python 3.11+.
+> See [this issue thread](https://github.com/google-coral/pycoral/issues/85) for 
+> 3.10 prebuilt repo and build instructions (including required hacks)
+
+### `input`
+- `input: <string:path>` **REQUIRED**
+- Default: None
+
+The `input` key is used to set the path to the model file
+
+>![!IMPORTANT]
+> The `input` key is **REQUIRED** for `coral` `framework` models.
+
+### `classes`
+- `classes: <string:path>`
+- Default: COC0 2017 classes (80 labels)
+
+The `classes` key is used to set the path to the classes file for the model.
+
+>[!CAUTION]
+> All the included pretrained TPU object detection models require the 90 label COCO dataset.
+> You can find the list of labels [here](See https://coral.ai/models/object-detection/)
+
+### `height` and `width`
+- `height: <int>` and `width: <int>`
+- Default: `416`
+
+The *input* `height` and `width` keys are used to set the image dimensions
+
+### `processor`
+- `processor: <string>`
+- Default: `tpu`
+
+The `processor` key is used to set the processor to use for that model. It will always be set to `tpu`
+
+### `detection_options` subsection
+The `detection_options` subsection is where you define the detection settings for the model.
+
+#### `nms` subsection
+The `nms` subsection is where you define the Non-Max Suppressive settings.
+
+##### `enabled`
+- `enabled: <string>`
+- `yes` or `no`
+- Default: `yes`
+
+The `enabled` key is used to enable or disable Non-Max Suppressive filtering.
+
+##### `threshold`
+- `threshold: <float>`
+- Range: `0.01 - 1.0`
+- Default: `0.35`
+
+The `threshold` key is used to set the Non-Max Suppressive threshold. Lower will filter more
 
 ### Example
 ```yaml
 models:
-  # - TPU Model Example [pre-built google pycoral only supports Python 3.7-3.9]
-  # - There is a 3.10 prebuilt available from a user on GitHub, but it is not official.
-  # - You can also build it yourself for python 3.11+.
-  # - See https://github.com/google-coral/pycoral/issues/85 for 3.10 prebuilt repo and build instructions (including required hacks)
   - name: tpu
     description: "SSD MobileNet V2 TensorFlow2 trained"
     enabled: no
-
     framework: coral
     type_of: object
-    # - Will always be tpu
     processor: tpu
-
     input: "${MODEL_DIR}/coral_tpu/tf2_ssd_mobilenet_v2_coco17_ptq_edgetpu.tflite"
-    # - All of the included TPU object detection models require the 90 label COCO dataset
-    # - See https://coral.ai/models/object-detection/
     classes: "${MODEL_DIR}/coral_tpu/coco-labels-paper.txt"
-
+    #height: 512  ## Neither are required but can be supplied.
+    #width: 512
     detection_options:
-      # - Non Max Suppressive threshold, lower will filter more overlapping bounding boxes out.
-      # - Currently, only TPU model NMS can be enabled/disabled
+      confidence: 0.2
       nms:
         enabled: yes
         threshold: .35
-      confidence: 0.2
 ```
 
-## Tensor RT model config
+## `trt` (Tensor RT) model config
+
+### `input`
+- `input: <string:path>` **REQUIRED**
+- Default: None
+
+The `input` key is used to set the path to the model file
+
+>![!IMPORTANT]
+> The `input` key is **REQUIRED** for `trt` `framework` models.
+
+### `classes`
+- `classes: <string:path>`
+- Default: COC0 2017 classes (80 labels)
+
+The `classes` key is used to set the path to the classes file for the model.
+
+>[!TIP]
+> If the `classes` key is omitted, the COCO 2017 classes (80 labels) are used.
+
+### `height` and `width`
+- `height: <int>` and `width: <int>`
+- Default: `416`
+
+The *input* `height` and `width` keys are used to set the image dimensions
+
+### `processor`
+- `processor: <string>`
+- Default: `gpu`
+
+The `processor` key is used to set the processor to use for that model. It will always be set to `gpu`
+
+### `gpu_idx`
+- `gpu_idx: <int>`
+- Default: 0
+
+The `gpu_idx` key is used to set the index of the GPU to use.
+
+>[!TIP]
+> If using multiple GPUs, set the index of the GPU to use. Ignored if `processor` is not `gpu`.
+> To get the index and name of each device:
+> `python3 -c 'import torch; print(f"Available GPUs: {torch.cuda.device_count()}") [print(f"index: {i} - {torch.cuda.get_device_name(i)}") for i in range(torch.cuda.device_count())]'`
+
+### `output_type`
+- `output_type: <string>`
+- `yolov3` or `yolov4` or `yolov7` or `yolov8` or `yolonas` or `yolov10`
+- Default: None
+
+The `output_type` key is used to set the output type for the model. This is used to tell the server
+how to process the output from the model into confidence, bounding box, and class id.
+
+### `detection_options` subsection
+The `detection_options` subsection is where you define the detection settings for the model.
+
+#### `nms` subsection
+The `nms` subsection is where you define the Non-Max Suppressive settings.
+
+##### `enabled`
+- `enabled: <string>`
+- `yes` or `no`
+- Default: `yes`
+
+The `enabled` key is used to enable or disable Non-Max Suppressive filtering.
+
+##### `threshold`
+- `threshold: <float>`
+- Range: `0.01 - 1.0`
+- Default: `0.35`
+
+The `threshold` key is used to set the Non-Max Suppressive threshold. Lower will filter more
+overlapping bounding boxes out.
 
 ### Example
 ```yaml
 models:
-  # TensorRT Model Example (User must install TensorRT and compile their engine model)
+# TensorRT Model Example (User must install TensorRT and compile their engine model)
   - name: yolo-nas-s trt
     enabled: no
     description: "TensorRT optimized YOLO-NAS-S pretrained model"
@@ -856,46 +1069,36 @@ models:
         threshold: 0.44
 ```
 
-## ONNX model config
 
-### Example
-```yaml
-models:
-  # ONNX Runtime Example
-  - name: yolov8s onnx
-    description: "Ultralytics YOLO v8s pretrained ONNX model on onnxruntime"
-    enabled: no
-    # - Use onnxruntime backend: ort
-    framework: ort
+## `http`:`rekognition` (AWS Rekognition) model config
+The `http` `framework` is used for models that are supported by an HTTP API.
 
-    type_of: object
+### `aws_access_key_id`, `aws_secret_access_key` and `region_name`
+- `aws_access_key_id: <string>`, `aws_secret_access_key: <string>` and `region_name: <string>`
+- Default: None
 
-    processor: gpu
-#    gpu_idx: 0
-    # - Possible ROCm support *WIP*
-#    gpu_framework: cuda
+The `aws_access_key_id`, `aws_secret_access_key` and `region_name` keys are used to set the AWS credentials
+for the model. Please see the [boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/guide/credentials.html#passing-credentials-as-parameters)
+for more information on how to set these up.
 
-    input: "/shared/models/yolo/yolov8s.onnx"
-    #classes: path/to/classes.file
+### `framework`
+- `framework: http`
+- Default: `http`
 
-    # - Only ort, torch and trt support output_type
-    # - Tells the server how to process the output from the model into confidence, bounding box, and class id
-    # - [yolonas, yolov8, yolov10]
-    output_type: yolov8
+The `framework` key is used to set the ML framework to use.
 
-    # ** NOTE: MAKE SURE to set the proper model input size or it will throw errors!
-    height: 640
-    width: 640
+### `sub_framework`
+- `sub_framework: <string>`
+- `rekognition`
 
-    detection_options:
-      confidence: 0.33
-      # ort and trt support nms enabled/disabled (YOLO v10 does not need NMS)
-      nms:
-        enabled: yes
-        threshold: 0.44
-```
+The `sub_framework` key is used to set the sub-framework to use.
 
-## AWS Rekognition model config
+### `processor`
+- `processor: <string>`
+- Default: `none`
+
+The `processor` key is used to set the processor to use for that model. It will always be set to `none`
+when http`:`rekognition` is set.
 
 ### Example
 ```yaml
@@ -917,147 +1120,347 @@ models:
       confidence: 0.4455
 ```
 
-## face_recognition model config
+## `face_recognition` model config
+The `face_recognition` `framework` is used for face detection and recognition based on D-Lib.
+
+### `framework`
+- `framework: <string>`
+- `face_recognition`
+
+The `framework` key is used to set the ML framework to use.
+
+### `training_options` subsection
+The `training_options` subsection is where you define the training settings for the model.
+Training is done via cli, you supply <x> 'passport' style photos of a person to train a recognition model.
+
+When a face is detected, it is compared to the known faces and if it matches, 
+the label is set to the known face label (the name of the file, i.e. `john.1.jpg`).
+
+#### `model`
+- `model: <string>`
+- `cnn` or `hog`
+- Default: `cnn`
+
+The `model` key is used to set the model to use for training. `cnn` is far more accurate but slower on CPUs.
+`hog` is faster but less accurate.
+
+>[!IMPORTANT]
+> If you use `cnn` for training, you MUST use `cnn` for detection.
+
+#### `upsample_times`
+- `upsample_times: <int>`
+- Default: `1`
+
+The `upsample_times` key is used to set how many times to upsample the image looking for faces.
+Higher numbers find smaller faces but will take longer.
+
+#### `num_jitters`
+- `num_jitters: <int>`
+- Default: `1`
+
+The `num_jitters` key is used to set how many times to re-sample the face when calculating encoding.
+Higher is more accurate but slower (i.e. 100 is 100x slower).
+
+#### `max_size`
+- `max_size: <int>`
+- Default: `600`
+
+The `max_size` key is used to set the max width of the image to feed the model (scaling applied).
+The image will be resized to this width before being passed to the model.
+
+>[!NOTE]
+> The larger the max size, the longer it will take and the more memory it will use.
+> If you see out of memory errors, lower the max size.
+
+#### `dir`
+- `dir: <string:path>`
+- Default: None
+
+The `dir` key is used to set the source directory where known (trained) faces are stored.
+
+### `unknown_faces` subsection
+The `unknown_faces` subsection is where you define the settings for unknown faces.
+An unknown face is a detected face that does not match any known faces. The goal of unknown face cropping is to
+get a good image of the unknown face to possibly train a new face.
+
+#### `enabled`
+- `enabled: <string>`
+- `yes` or `no`
+- Default: `yes`
+
+The `enabled` key is used to enable or disable the unknown face cropping.
+
+#### `label_as`
+- `label_as: <string>`
+- Default: `Unknown`
+
+The `label_as` key is used to set the label to give an unknown face.
+
+#### `leeway_pixels`
+- `leeway_pixels: <int>`
+- Default: `10`
+
+The `leeway_pixels` key is used to set how many pixels to add to each side when cropping 
+an unknown face from the image.
+
+#### `dir`
+- `dir: <string:path>`
+- Default: None
+
+The `dir` key is used to set the directory where unknown faces are stored.
+
+### `detection_options` subsection
+The `detection_options` subsection is where you define the detection settings for the model.
+
+#### `model`
+- `model: <string>`
+- `cnn` or `hog`
+- Default: `cnn`
+
+The `model` key is used to set the model to use for detection. `cnn` is far more accurate but slower on CPUs.
+`hog` is faster but less accurate.
+
+>[!IMPORTANT]
+> If you use `cnn` for training, you MUST use `cnn` for detection.
+
+#### `confidence`
+- `confidence: <float>`
+- Range: `0.01 - 1.0`
+- Default: `0.2`
+
+The `confidence` key is used to set the confidence threshold for detection of a face.
+
+#### `recognition_threshold`
+- `recognition_threshold: <float>`
+- Range: `0.01 - 1.0`
+- Default: `0.6`
+
+The `recognition_threshold` key is used to set the confidence threshold for face recognition.
 
 ### Example
 ```yaml
 models:
-  # face-recognition Example
   - name: dlib face
     enabled: no
     description: "dlib face detection/recognition model"
     type_of: face
     framework: face_recognition
-
-    # - These options only apply to when the model is
-    # - used for training faces to be recognized
     training_options:
-      # - 'cnn' is more accurate but slower on CPUs. 'hog' is faster but less accurate
-      # ** NOTE: if you use cnn here you MUST use cnn for detection
       model: cnn
-      # - How many times to upsample the image looking for faces.
-      # - Higher numbers find smaller faces but take longer.
       upsample_times: 1
-      # - How many times to re-sample the face when calculating encoding.
-      # - Higher is more accurate, but slower (i.e. 100 is 100x slower)
       num_jitters: 1
-      # - Max width of image to feed the model (scaling applied)
       max_size: 600
-      # - Source dir where known faces are stored.
       dir: "${DATA_DIR}/face_data/known"
-
-    # - An unknown face is a detected face that does not match any known faces
-    # - Can possibly use the unknown face to train a new face depending on the quality of the cropped image
     unknown_faces:
       enabled: yes
-      # - The label to give an unknown face
       label_as: "Unknown"
-      # - When cropping an unknown face from the frame, how many pixels to add to each side
       leeway_pixels: 10
-      # - Where to save unknown faces
       dir: "${DATA_DIR}/face_data/unknown"
-
     detection_options:
       # - 'cnn' is more accurate but slower on CPUs. 'hog' is faster but less accurate
+      # - If you use 'cnn' for training, you MUST use 'cnn' for detection!
       model: cnn
-
       # - Confidence threshold for face DETECTION
       confidence: 0.5
-
       # - Confidence threshold for face RECOGNITION (comparing the detected face to known faces)
       recognition_threshold: 0.6
-
       # - How many times to upsample the image looking for faces.
       # - Higher numbers find smaller faces but takes longer.
       upsample_times: 1
-
       # - How many times to re-sample the face when calculating encoding.
       # - Higher is more accurate, but slower (i.e. 100 is 100x slower)
       num_jitters: 1
-
       # - Max width of image to feed the model (scaling applied)
       max_size: 600
 ```
 
-## ALPR model config
-ALPR models have `sub-framework` and then another subtype `api_type` that can be `cloud` or `local`.
+## `alpr` model config
+ALPR models have `sub_framework` and then another subtype `api_type` that can be `cloud` or `local`.
 
 ### Example
+#### `openalpr` local examples
+The `openalpr` `sub_framework` is used for models that are supported by OpenALPR (local binary).
+
+> [!IMPORTANT]
+> You have to build OpenALPR from source to get the binary. There is CUDA support, 
+> please see [this script](https://github.com/ShinobiCCTV/Shinobi/blob/dev/INSTALL/openalpr-gpu-easy.sh)
+> for build instructions
+
+>[!NOTE]
+> You need to understand how to skew and warp images to make a plate readable by OCR, see openalpr docs.
+> You can also customize openalpr config files and only run them on certain cameras.
+> 
+> OpenALPR is OLD software, try the `http`:`plate_recognizer` `sub_framework`, its free up to X requests.
+
+##### `framework`
+- `framework: <string>`
+- `alpr`
+
+The `framework` key is used to set the ML framework to use.
+
+##### `sub_framework`
+- `sub_framework: <string>`
+- `openalpr`
+
+The `sub_framework` key is used to set the sub-framework to use.
+
+##### `processor`
+- `processor: <string>`
+- `none`
+
+The `processor` key is used to set the processor to use for that model. It will always be set to `none`
+when `sub_framework` is `openalpr`. This is because it is an external binary.
+
+##### `detection_options` subsection
+
+###### `max_size`
+- `max_size: <int>`
+- Default: None
+
+The `max_size` key is used to set the max width of the image to feed the model (scaling applied).
+
+###### `binary_path`
+- `binary_path: <string:path>`
+- Default: `alpr`
+
+The `binary_path` key is used to set the path to the OpenALPR binary.
+
+###### `binary_params`
+- `binary_params: <string>`
+- Default: None
+
+The `binary_params` key is used to set the parameters to pass to the OpenALPR binary.
+
 ```yaml
 models:
-  # - OpenALPR local binary Example
   - name: "openalpr cpu"
-    # ** NOTE:
-    # - You need to understand how to skew and warp images to make a plate readable by OCR, see openalpr docs.
-    # - You can also customize openalpr config files and only run them on certain cameras.
     description: "openalpr local SDK (binary) model with a config file for CPU"
     enabled: no
 
     type_of: alpr
     framework: alpr
     processor: none
-    # - ALPR sub-framework to use: openalpr, platerecognizer
     sub_framework: openalpr
 
     detection_options:
+      confidence: 0.5
+      max_size: 600
       binary_path: alpr
       # - The default config file uses CPU, no need to make a custom config file
+      # - -j is already passed for JSON output
       binary_params:
-      confidence: 0.5
-      max_size: 600
-
-  # - OpenALPR Model Example (Shows how to use a custom openalpr config file)
-  - name: "openalpr gpu"
-    description: "openalpr local SDK (binary) with a config file to use CUDA GPU"
-    enabled: no
-
-    type_of: alpr
-    framework: alpr
-    sub_framework: openalpr
-    # - openalpr config file controls processor, you can put none,cpu,gpu or tpu here.
-    processor: none
-
-    detection_options:
-      # - Path to alpr binary (default: alpr)
-      binary_path: alpr
-      # - Make a config file that uses the gpu instead of cpu
-      binary_params: "--config /etc/alpr/openalpr-gpu.conf"
-      confidence: 0.5
-      max_size: 600
+      # - This shows how to pass a custom config file that would have the processor set to gpu
+#      binary_params: "--config /etc/alpr/openalpr-gpu.conf"
 ```
+
+## `http`:`plate_recognizer` model config
+The `http` `framework` is used for models that are supported by an HTTP API.
+The `plate_recognizer` `sub_framework` uses HTTP requests to the [platerecognizer.com](https://platerecognizer.com) API. 
+It is free up to a certain number of requests but, requires you to create an account and create an API key.
+
+>[!NOTE]
+> Please see the [platerecognizer snapshot cloud api docs](https://guides.platerecognizer.com/docs/snapshot/api-reference#snapshot-cloud-api)
+> for more information on the API and the model options.
+
+### `type_of`
+- `type_of: <string>`
+- `alpr`
+
+The `type_of` key is used to set the type of model to use.
+
+### `framework`
+- `framework: <string>`
+- `http`
+
+The `framework` key is used to set the ML framework to use.
+
+### `sub_framework`
+- `sub_framework: <string>`
+- `plate_recognizer`
+
+The `sub_framework` key is used to set the sub-framework to use.
+
+### `api_type`
+- `api_type: <string>`
+- `cloud`
+
+The `api_type` key is used to set the type of API to use. Only `cloud` is supported for `plate_recognizer`.
+
+### `api_url`
+- `api_url: <string>`
+- Default: `https://api.platerecognizer.com/v1/plate-reader/`
+
+The `api_url` key is used to set the API URL for HTTP requests to platerecognizer.com, for enterprise local API 
+use or if the public API changes.
+
+### `api_key`
+- `api_key: <string>` **REQUIRED**
+- Default: None
+
+The `api_key` key is used to set the API key for HTTP requests to platerecognizer.com.
+
+### `detection_options` subsection
+The `detection_options` subsection is where you define the detection settings for the model.
+
+#### `regions`
+- `regions: ['<string>', '<string>']`
+- Default: None
+- Example: `regions: ['us', 'ca']`
+
+See platerecognizer docs for more info
+
+#### `stats`
+- `stats: <string>`
+- `yes` or `no`
+- Default: `no`
+
+#### `min_dscore`
+- `min_dscore: <float>`
+- Range: `0.01 - 1.0`
+- Default: `0.5`
+- Example: `min_dscore: 0.5`
+
+Plate detection confidence score threshold.
+
+#### `min_score`
+- `min_score: <float>`
+- Range: `0.01 - 1.0`
+- Default: `0.5`
+
+Plate **TEXT** recognition confidence score threshold.
+
+#### `max_size`
+- `max_size: <int>`
+- Default: `1600`
+
+The `max_size` key is used to set the max width of the image to feed the model (scaling applied).
+
+#### `payload` subsection
+The `payload` subsection is used to set the payload to pass to the API instead of the above config options.
+
+#### `config` subsection
+The `config` subsection is used to set the server-side model config. See the [platerecognizer API docs](https://guides.platerecognizer.com/docs/snapshot/api-reference#snapshot-cloud-api) for more info.
 
 ### Example
 ```yaml
 models:
-  # - Plate Recognizer Example
-  - name: 'Platerec'
+  - name: 'Platerec'  # lower-cased, spaces preserved = platerec
     enabled: no
     type_of: alpr
-    # - Even though it is ALPR, it is using HTTP for detection
     framework: http
     sub_framework: plate_recognizer
-
     api_type: cloud
-    #api_url: "https://api.platerecognizer.com/v1/plate-reader/"
+    #api_url: "https://api.platerecognizer.com/v1/plate-reader/"  # automatically set if undefined
     api_key: ${PLATEREC_API_KEY}
     detection_options:
-      # - Only look in certain countrys or regions in a country.
-      # - See platerecognizer docs for more info
       #regions: ['ca', 'us']
-
       stats: no
-
       min_dscore: 0.5
-
       min_score: 0.5
-
       max_size: 1600
-
-      # - For advanced users, you can pass in any of the options from the API docs
       #payload:
         #regions: ['us']
         #camera_id: 12
-
       #config:
         #region: 'strict'
         #mode:  'fast'
