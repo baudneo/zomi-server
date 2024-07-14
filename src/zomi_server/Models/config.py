@@ -821,8 +821,8 @@ class CV2YOLOModelConfig(BaseModelConfig):
     square: Optional[bool] = Field(
         False, description="Zero pad the image to be a square"
     )
-    cv2_cuda_fp_16: Optional[bool] = Field(
-        False, description="model uses Floating Point 16 Backend (EXPERIMENTAL!)"
+    cuda_fp_16: Optional[bool] = Field(
+        False, description="Use Floating Point 16 Backend (CUDA - EXPERIMENTAL)"
     )
     gpu_idx: Optional[int] = Field(0, description="GPU Index to use")
 

@@ -103,7 +103,7 @@ class CV2Base:
                 self.processor = self.config.processor = ModelProcessor.CPU
             else:  # Passed opencv version check, using GPU
                 self.net.setPreferableBackend(cv2.dnn.DNN_BACKEND_CUDA)
-                if self.config.cv2_cuda_fp_16:
+                if self.config.cuda_fp_16:
                     self.net.setPreferableTarget(cv2.dnn.DNN_TARGET_CUDA_FP16)
                     logger.debug(
                         f"{self.lp} '{self.name}' half precision floating point (FP16) cuDNN target enabled (turn this "
