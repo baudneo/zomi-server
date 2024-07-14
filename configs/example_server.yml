@@ -137,6 +137,12 @@ models:
     # - cpu/gpu
     # NOTE: gpu requires OpenCV to be compiled with CUDA/cuDNN support!!!
     processor: cpu
+    # - Which GPU to use, default: 0
+    #gpu_idx: 0
+    # - Use experimental half precision floating point (FP16) for inference with CUDA
+    #cuda_fp_16: no
+    # - Type of model output (helps to process output into scores, bboxes, class ids)
+    #output_type: yolov4  # WIP/NOT IMPLEMENTED
 
     # - Model file is required for models that require input.
     # - Config file is optional, only .weights input requires a config file.
