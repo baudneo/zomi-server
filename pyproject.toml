@@ -24,6 +24,7 @@ dependencies = [
     'python-Levenshtein>=0.23.0',
     "python-multipart>=0.0.6",
     "requests",
+    "pynvml>=11.5.0"
 ]
 
 authors = [
