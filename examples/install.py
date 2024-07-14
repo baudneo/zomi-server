@@ -1339,7 +1339,7 @@ if __name__ == "__main__":
     if not route_port:
         route_port = "5000"
     if not route_sign_key:
-        logger.info("Generating random JWT signature key...")
+        logger.info("No JWT sign key configured! Generating random JWT signature key...")
         route_sign_key = "".join(
             random.choice(string.ascii_letters + string.digits) for _ in range(128)
         )
