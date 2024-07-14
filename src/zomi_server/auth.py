@@ -21,7 +21,7 @@ if TYPE_CHECKING:
     from .Models.config import GlobalConfig, Settings
 
 DFLT_USER_PASSW = "zomi"
-DFLT_USER_UNAME = "imo  z"
+DFLT_USER_UNAME = "imoz"
 logger = logging.getLogger(SERVER_LOGGER_NAME)
 __all__ = [
     "OAUTH2_SCHEME",
