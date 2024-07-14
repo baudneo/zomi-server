@@ -898,10 +898,14 @@ models:
 ### Example
 ```yaml
 models:
-  # AWS Rekognition Example *WIP*
+  # AWS Rekognition Example
   - name: aws
     description: "AWS Rekognition remote HTTP detection (PAID per request!)"
     enabled: no
+    aws_access_key_id:
+    aws_secret_access_key:
+    region_name:
+
     framework: http
     sub_framework: rekognition
     type_of: object
