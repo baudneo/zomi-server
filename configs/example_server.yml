@@ -163,7 +163,7 @@ models:
     enabled: no
     framework: torch
     # - Use pretrained model with weights or configure input to your own model and classes
-    # - NOTE: if pretrained is defined, input, classes and num_classes are ignored
+    # - NOTE: if pretrained is enabled, input, classes and num_classes are ignored
     # - accurate|fast|default|high_performance|low_performance
     pretrained:
       enabled: yes
@@ -171,7 +171,7 @@ models:
 
     #input: /path/to/model.pt
     #classes: /path/to/classes/file.txt
-    # - Number of classes including background
+    # - Number of classes including background (only for torch framework)
     #num_classes: 80
 
     type_of: object
