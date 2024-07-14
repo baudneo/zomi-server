@@ -521,7 +521,7 @@ class ORTDetector(OCRBase):
                     #         for k, v in final_results.items()
                     #         if v and k != best_result
                     #     }
-                    },
+                    # },
                 )
 
             if self.ocr_cfg.debug_images:
