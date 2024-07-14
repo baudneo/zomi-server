@@ -508,7 +508,7 @@ class FaceRecognitionLibModelTrainingOptions(BaseModelOptions):
 
     max_size: Optional[int] = Field(
         600,
-        ge=100,
+        ge=50,
         description="Maximum size (Width) of image to load into memory for "
         "face detection (image will be scaled)",
     )
