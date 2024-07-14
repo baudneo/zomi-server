@@ -55,8 +55,14 @@ class NMSOptions(BaseModel):
 
 
 class OutputType(str, enum.Enum):
-    yolonas = "yolonas"
+    yolov3 = "yolov3"
+    yolov4 = "yolov4"
+    yolov5 = "yolov5"
+    yolov6 = "yolov6"
+    yolov7 = "yolov7"
     yolov8 = "yolov8"
+    yolov9 = "yolov9"
+    yolonas = "yolonas"
     yolov10 = "yolov10"
 
 
