@@ -412,3 +412,20 @@ models:
       #config:
         #region: 'strict'
         #mode:  'fast'
+
+# - Rudimentary color detection
+color:
+  # - Enable or disable color detection of a detected object.
+  # - The bounding box is cropped and analysis is done to get up to the top_n
+  enabled: no
+  # - Number of colors to return
+  top_n: 5
+  # - color naming specification to use (html4, css2, css21, css3)
+  spec: html4
+  # - List of labels to run color detection on, if none are listed, all labels will be run
+  labels:
+#    - car
+#    - truck
+#    - bus
+#    - motorcycle
+#    - bicycle
