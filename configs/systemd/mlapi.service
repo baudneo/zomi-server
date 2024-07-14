@@ -12,7 +12,7 @@
 ## To start,
 # sudo systemctl start mlapi
 
-## CHANGE User and ExecStart to match your system, if needed.
+## CHANGE User and ExecStart (if needed) to match your system!
 [Unit]
 Description=ZoMi ML API service
 After=network.target
@@ -30,9 +30,9 @@ StandardOutput=null
 StandardError=null
 
 # Change to the user that the server was installed for
-User=www-data
-# Change paths if needed
-ExecStart=/usr/local/bin/mlapi -C /path/to/server.yml
+User=myusername
+# Change config file path to match your system, if needed.
+ExecStart=/usr/local/bin/mlapi -C /opt/zomi/server/conf/server.yml
 
 [Install]
 WantedBy=multi-user.target
