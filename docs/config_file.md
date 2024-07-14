@@ -62,6 +62,7 @@ the headers from a proxy server. This is useful when running behind a reverse pr
 
 ### `forwarded_allow_ips` subsection
 - Default: None
+
 The [`forwarded_allow_ips`](../configs/example_server.yml?plain=1#L37) subsection is where you define the IP 
 addresses that Uvicorn will trust the `X-Forwarded-For` header from. This is useful when running behind a 
 reverse proxy server like Nginx or Apache.
@@ -511,8 +512,8 @@ threshold for detection. I recommend 0.2-0.5 to keep the noise down but also all
 - `yes` or no`
 - Default: `no`
 
-The [`detect_color`](../configs/example_server.yml?plain=1#L161) key is used to set whether to 
-detect color in the image. [`color_detection`]() is configured globally
+The [`detect_color`](../configs/example_server.yml?plain=1#L161) key is used to ovveride the global color detection
+`enabled` flag. [`color_detection`](#color-section) is configured globally.
 
 ## `color` section
 The [`color`](../configs/example_server.yml?plain=1#L417) section is where you define the color detection settings.
@@ -569,9 +570,6 @@ color:
     - bicycle
 ```
 
->[!TIP]
-> If no labels are configured, color detection will run on all detected objects
-
 # Models
 Models are defined in the config file `models:` section. Model names should be unique and are assigned a UUID on startup.
 
@@ -598,20 +596,27 @@ The `pretrained` subsection is where you define the torch pretrained model setti
 > The `TORCH_HOME` variable is reset to whatever it was before the server ran inference.
 
 #### `enabled`
-- `enabled: yes` or `no`
+- `enabled: <string>`
+- `yes` or `no`
+- Default: `no`
 
 The `enabled` key is used to enable or disable the pretrained model. It's either a pretrained or users 
 model defined by `input`, `classes` and `num_classes`. 
 
 #### `name`
-- `name: default` or `balanced` or `accurate` or `fast` or `high_performance` or `low_performance` (*WIP*)
-
+- `name: <string>`
+- `default` or `balanced` or `accurate` or `fast` or `high_performance` or `low_performance` (*WIP*)
+- Default: `default` / `balanced`
 The `name` key is used to set the pretrained model from included torch models:
-- `accurate` - Slower but more accurate -> [**fRCNN MN v3**](https://pytorch.org/vision/main/models/generated/torchvision.models.detection.fasterrcnn_mobilenet_v3_large_fpn.html)
-- `fast` - Faster but less accurate -> [**FCOS RN50 v2**](https://pytorch.org/vision/2.0/models/generated/torchvision.models.detection.fcos_resnet50_fpn.html#torchvision.models.detection.fcos_resnet50_fpn)
-- `default` or `balanced` - Balanced (Default) -> [**RetinaNet RN50 v2**](https://pytorch.org/vision/master/models/generated/torchvision.models.detection.retinanet_resnet50_fpn_v2.html)
-- `high_performance` - High performance settings -> [**fRCNN RN50 v2**](https://pytorch.org/vision/main/models/generated/torchvision.models.detection.fasterrcnn_resnet50_fpn_v2.html)
-- `low_performance` - Low performance settings -> *WIP* [**SSDlite ?**](https://pytorch.org/vision/main/models/ssdlite.html)
+
+##### Named pretrained models
+| Name                    | Description                                                                                                                                                                                        |
+|-------------------------|----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| `accurate`              | Slower but more accurate -> [**fRCNN MN v3**](https://pytorch.org/vision/main/models/generated/torchvision.models.detection.fasterrcnn_mobilenet_v3_large_fpn.html)                                |
+| `fast`                  | Faster but less accurate -> [**FCOS RN50 v2**](https://pytorch.org/vision/2.0/models/generated/torchvision.models.detection.fcos_resnet50_fpn.html#torchvision.models.detection.fcos_resnet50_fpn) |
+| `default` or `balanced` | Balanced (Default) -> [**RetinaNet RN50 v2**](https://pytorch.org/vision/master/models/generated/torchvision.models.detection.retinanet_resnet50_fpn_v2.html)                                      |
+| `high_performance`      | High performance settings -> [**fRCNN RN50 v2**](https://pytorch.org/vision/main/models/generated/torchvision.models.detection.fasterrcnn_resnet50_fpn_v2.html)                                    |
+| `low_performance`       | Low performance settings -> *WIP* [**SSDlite ?**](https://pytorch.org/vision/main/models/ssdlite.html)                                                                                             |
 
 ### `num_classes`
 - `num_classes: <int>`
@@ -629,7 +634,7 @@ The `gpu_idx` key is used to set the index of the GPU to use.
 >[!TIP]
 > If using multiple GPUs, set the index of the GPU to use. Ignored if `processor` is not `gpu`.
 > To get the index and name of each device: 
-> `python3 -c 'import torch; print(f'Available GPUs: {torch.cuda.device_count()}') [print(f"index: {i} - {torch.cuda.get_device_name(i)}") for i in range(torch.cuda.device_count())]'`
+> `python3 -c 'import torch; print(f"Available GPUs: {torch.cuda.device_count()}") [print(f"index: {i} - {torch.cuda.get_device_name(i)}") for i in range(torch.cuda.device_count())]'`
 
 ### `detection_options` subsection
 The `detection_options` subsection is where you define the detection settings for the model.
@@ -751,7 +756,7 @@ The `gpu_idx` key is used to set the index of the GPU to use.
 >[!TIP]
 > If using multiple GPUs, set the index of the GPU to use. Ignored if `processor` is not `gpu`.
 > To get the index and name of each device: 
-> `python3 -c 'import torch; print(f'Available GPUs: {torch.cuda.device_count()}') [print(f"index: {i} - {torch.cuda.get_device_name(i)}") for i in range(torch.cuda.device_count())]'`
+> `python3 -c 'import torch; print(f"Available GPUs: {torch.cuda.device_count()}") [print(f"index: {i} - {torch.cuda.get_device_name(i)}") for i in range(torch.cuda.device_count())]'`
 
 ### `cuda_fp_16`
 - `cuda_fp_16: <string>`

@@ -202,7 +202,7 @@ models:
     processor: gpu
     # - If using multiple GPUs, set the index of the GPU to use. Ignored if `processor` is not `gpu`.
     # - To get the index and name of each device:
-    # - `python3 -c 'import torch; print(f'Available GPUs: {torch.cuda.device_count()}') [print(f"index: {i} - {torch.cuda.get_device_name(i)}") for i in range(torch.cuda.device_count())]'`
+    # - `python3 -c 'import torch; print(f"Available GPUs: {torch.cuda.device_count()}") [print(f"index: {i} - {torch.cuda.get_device_name(i)}") for i in range(torch.cuda.device_count())]'`
     # ** NOTE: The index is zero based, so the first GPU is 0, second is 1, etc.
     gpu_idx: 0
 
