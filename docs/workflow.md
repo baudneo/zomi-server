@@ -10,16 +10,37 @@ You can also read the comments in the file for more information until proper doc
 ### Models
 Models are defined in the config file [`models:`](../configs/example_server.yml?plain=1#L127) section. Model names should be unique and are assigned a UUID on startup.
 
-## Secrets (secrets.yml)
->[!NOTE]
-> Secrets are actually **Substitution Variables**. They are used in the config file 
-> for convenience and can also be used as secrets!.
+## Substitution Variables / Secrets (secrets.yml)
 
-Secrets are stored in a separate file. This file is not required for the server to start if it is not 
-defined in the config file (`substitutions:IncludeFile:`). This is a convenience feature to keep sensitive
-information out of the main config file for when you need to share the config file with others.
+>[!TIP]
+> Sub vars use a bash like syntax: `${VAR_NAME}`
 
+Substitution variables (sub vars) are used in the config file for convenience and to keep sensitive information 
+out of the main config file for when you are sharing it with others.
 
+Secrets are sub vars that are stored in a separate file. The secrets file is not required for the server to start 
+if it is not defined in the config file [`substitutions:IncludeFile:`](../configs/example_server.yml?plain=1#L20).
+
+### Example
+#### `secrets.yml`
+```yaml 
+server:
+  IMPORTED SECRET: "This is from the secrets file!"
+```
+#### `server.yml`
+```yaml
+substitutions:
+  EXAMPLE: "World!"
+  BASE_DIR: /opt/zomi/server
+  CFG_DIR: ${BASE_DIR}/conf
+  LOG_DIR: ${BASE_DIR}/logs
+  
+  # Import additional sub vars from this file
+  IncludeFile: /path/to/secrets.yml
+
+Example of a sub var: "Hello, ${EXAMPLE}"
+Example of a secret: my secret = ${IMPORTED SECRET}
+```
 
 ## Requests
 >[!NOTE]
