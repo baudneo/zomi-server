@@ -615,20 +615,7 @@ class TorchModelOptions(BaseModelOptions):
 
 
 class BaseModelConfig(BaseModel):
-    """
-    Base Model Config
-
-    This is the base model config that all models inherit from.
-
-    :param id: Unique ID of the model
-    :param name: model name
-    :param enabled: model enabled
-    :param description: model description
-    :param framework: model framework
-    :param processor: Processor to use for model
-    :param sub_framework: sub-framework to use for model
-    :param detection_options: Model options (if any)
-    """
+    """This is the base model config that all models inherit from."""
 
     id: uuid.UUID = Field(
         default_factory=uuid.uuid4, description="Unique ID of the model", init=False
@@ -636,9 +623,17 @@ class BaseModelConfig(BaseModel):
     name: str = Field(..., description="model name")
     enabled: bool = Field(True, description="model enabled")
     description: str = Field(None, description="model description")
+    # todo: add validator that detects framework and sets a default sub framework if it is None.
     framework: ModelFrameWork = Field(
         default=ModelFrameWork.ORT, description="model framework"
     )
+    sub_framework: Optional[
+        Union[
+            OpenCVSubFrameWork,
+            HTTPSubFrameWork,
+            ALPRSubFrameWork,
+        ]
+    ] = Field(OpenCVSubFrameWork.DARKNET, description="sub-framework to use for model")
     type_of: ModelType = Field(
         ModelType.OBJECT,
         description="model type (object, face, alpr)",
@@ -647,15 +642,12 @@ class BaseModelConfig(BaseModel):
     processor: Optional[ModelProcessor] = Field(
         ModelProcessor.CPU, description="Processor to use for model"
     )
-
-    # todo: add validator that detects framework and sets a default sub framework if it is None.
-    sub_framework: Optional[
-        Union[
-            OpenCVSubFrameWork,
-            HTTPSubFrameWork,
-            ALPRSubFrameWork,
-        ]
-    ] = Field(OpenCVSubFrameWork.DARKNET, description="sub-framework to use for model")
+    height: Optional[int] = Field(
+        416, ge=1, description="Model input height (resized for model)"
+    )
+    width: Optional[int] = Field(
+        416, ge=1, description="Model input width (resized for model)"
+    )
 
     detection_options: Union[
         BaseModelOptions,
@@ -677,8 +669,6 @@ class BaseModelConfig(BaseModel):
         default_factory=OCRConfig,
         description="Optical Character Recognition (OCR) for the cropped bounding boxes of the model",
     )
-    # returns a tuple of ('primary color', 'specific color')
-    # Example: ('red', 'fire engine red')
     detect_color: Optional[bool] = Field(
         False,
         description="Enable Color Detection for the cropped bounding boxes of the model",
@@ -699,12 +689,7 @@ class TPUModelConfig(BaseModelConfig):
     classes: Optional[Path] = Field(
         None, description="model classes file path (Optional)"
     )
-    height: Optional[int] = Field(
-        416, ge=1, description="Model input height (resized for model)"
-    )
-    width: Optional[int] = Field(
-        416, ge=1, description="Model input width (resized for model)"
-    )
+
     square: Optional[bool] = Field(
         False, description="Zero pad the image to be a square; 1920x1080 = 1920x1920"
     )
@@ -1541,7 +1526,7 @@ class APIDetector:
         )
         if processor == ModelProcessor.NONE:
             available = True
-        if framework == ModelFrameWork.ALPR or framework == ModelFrameWork.REKOGNITION:
+        if framework == ModelFrameWork.ALPR or framework == ModelFrameWork.HTTP:
             available = True
         elif not processor:
             available = True
