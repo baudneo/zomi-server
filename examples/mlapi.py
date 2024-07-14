@@ -154,6 +154,7 @@ if __name__ == "__main__":
             succ = db.delete_user(username)
             logger.info(f"\n\nDeleted User ({username}): {succ}")
         elif user_mode == "--update":
+            # update pw and disabled
             _check_pw_uname()
             succ = db.update_user(username, password, disabled)
             logger.info(f"\n\nUpdated User ({username}): {succ}")
