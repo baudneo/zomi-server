@@ -155,7 +155,7 @@ class DetectionResults(BaseModel, arbitrary_types_allowed=True):
     type: ModelType = Field(...)
     processor: ModelProcessor = Field(...)
     results: Optional[List[Result]] = Field(None)
-    removed: Optional[List[Result]] = Field(None)
+    # extra_image_data: Optional[Dict[str, Any]] = Field(None, repr=False)
 
     image: Optional[np.ndarray] = Field(None, repr=False)
     # Flag that annotated image needs to be grabbed by other means

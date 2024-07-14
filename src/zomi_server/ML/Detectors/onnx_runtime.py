@@ -515,12 +515,12 @@ class ORTDetector(OCRBase):
                         )
                         for i in range(len(best_results))
                     ],
-                    extra_image_data={
-                        "ocr": {
-                            k: v
-                            for k, v in final_results.items()
-                            if v and k != best_result
-                        }
+                    # extra_image_data={
+                    #     "ocr": {
+                    #         k: v
+                    #         for k, v in final_results.items()
+                    #         if v and k != best_result
+                    #     }
                     },
                 )
 
