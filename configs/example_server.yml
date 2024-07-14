@@ -138,10 +138,8 @@ color:
 
 # - Define what models the server will offer, name is case-insensitive and preserves spaces.
 models:
-  # - The model name is how you will call it in the API request
-
   # OpenCV DarkNet Model Example
-  - name: YOLOv4  # Name will be lower cased, spaces are preserved; 'yolov4'
+  - name: YOLOv4  # Name will be lower cased, spaces are preserved; 'yolov4' / used in http request to id model
     enabled: no
     description: "YOLOv4 DarkNet pretrained model"
     #type_of: object  # Default is object / object , face, alpr
@@ -297,7 +295,7 @@ models:
         enabled: yes
         threshold: 0.44
 
-  # AWS Rekognition Example *WIP*
+  # AWS Rekognition Example
   - name: aws
     description: "AWS Rekognition remote HTTP detection (PAID per request!)"
     enabled: no
