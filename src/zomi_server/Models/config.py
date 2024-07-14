@@ -50,7 +50,7 @@ logger = logging.getLogger(SERVER_LOGGER_NAME)
 class NMSOptions(BaseModel):
     enabled: bool = Field(True, description="Enable Non-Maximum Suppression")
     threshold: Optional[float] = Field(
-        0.4, ge=0.0, le=1.0, description="Non-Maximum Suppression Threshold"
+        0.35, ge=0.0, le=1.0, description="Non-Maximum Suppression Threshold"
     )
 
 
