@@ -163,11 +163,7 @@ class DetectionResults(BaseModel, arbitrary_types_allowed=True):
     results: Optional[List[Result]] = Field(None)
     # extra_image_data: Optional[Dict[str, Any]] = Field(None, repr=False)
 
-    image: Optional[np.ndarray] = Field(None, repr=False)
-    # Flag that annotated image needs to be grabbed by other means
-    extra_image_data: Optional[Dict[str, Any]] = Field(None, repr=False)
-
-    def get_labels(self) -> List[Optional[str]]:
+    def get_labels(self) -> list[Any] | tuple[list[str], list[float], list[list[int]]]:
         if not self.results or self.results is None:
             return []
         return (
