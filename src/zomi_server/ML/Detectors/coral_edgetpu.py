@@ -81,11 +81,9 @@ class TpuDetector:
             raise ImportError(
                 f"{LP} tflite_runtime is not installed, cannot use TPU detectors"
             )
-            return
         # check if there is a tpu device
         if not list_edge_tpus():
             raise RuntimeError(f"{LP} no TPU devices found, cannot use TPU detectors")
-            return
 
         # Model init params
         self.config: TPUModelConfig = model_config
@@ -117,7 +115,8 @@ class TpuDetector:
             for word in words:
                 if word.startswith("libedgetpu"):
                     logger.info(
-                        f"{LP} TPU error detected. It could be a bad cable, needing to unplug/replug in the device or a system reboot."
+                        f"{LP} TPU error detected. It could be a bad cable, needing to unplug/replug "
+                        f"in the device or a system reboot."
                     )
         else:
             logger.debug(f"perf:{LP} loading took: {time.time() - t:.5f}s")
@@ -181,7 +180,6 @@ class TpuDetector:
 
     async def detect(self, input_image: np.ndarray):
         """Performs object detection on the input image."""
-        result = []
         b_boxes, labels, confs = [], [], []
         conf_threshold = self.config.detection_options.confidence
         nms = self.options.nms
