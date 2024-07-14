@@ -8,9 +8,8 @@ The [example_server.yml](../configs/example_server.yml) file is used as a templa
 You can also read the comments in the file for more information until proper documentation is written.
 
 ### Models
-Models are defined in the config file `models:` section. Model names should be unique and are assigned a UUID on startup.
+Models are defined in the config file [`models:`](../configs/example_server.yml?plain=1#L127) section. Model names should be unique and are assigned a UUID on startup.
 
-The [example_server.yml](../configs/example_server.yml?plain=1#L127)
 ## Secrets (secrets.yml)
 >[!NOTE]
 > Secrets are actually **Substitution Variables**. They are used in the config file 
