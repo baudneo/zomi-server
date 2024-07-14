@@ -1,11 +1,13 @@
 # ZoneMinder Machine Learning API (zomi-server)
-:warning: This software is in **ALPHA** stage, expect issues. :warning:
+>[!CAUTION]
+> :warning: This software is in **ALPHA** stage, expect issues and incomplete, unoptimized, janky code ;) :warning:
 
-This is a FastAPI based server component for the new ZoneMinder ML add-on. It processes HTTP JSON requests with what models to run 
-on BASE64 encoded images and returns the results. The client is responsible for filtering the detection results. 
-There is also rudimentary support for color detection of detected objects bounding boxes.
+This is a FastAPI based server component for the new ZoneMinder ML add-on. It processes HTTP JSON requests with 
+what models to run on BASE64 encoded images and returns the results (see [workflow](docs/workflow.md) docs for 
+more info). The client is responsible for filtering the detection results. 
+There is also rudimentary support for color detection of cropped bounding boxes.
 
-The server currently supports several ML backends and hardware accelerators:
+The server currently has basic support for several ML backends and hardware accelerators:
 
 **ML backends:**
 - OpenCV (DarkNet)
@@ -18,18 +20,20 @@ The server currently supports several ML backends and hardware accelerators:
 - HTTP
     - platerecognizer.com
     - AWS Rekognition
+- *Open an issue or pull request to get a backend/api supported*
 
 **Hardware**
 - CPU
-- Nvidia GPU
-- AMD GPU (Pytorch/onnxruntime ROCm) *WIP*
+    - OpenVINO is planned 
+- Nvidia GPU (CUDA / cuDNN / Tensor RT)
+- AMD GPU (Pytorch/onnxruntime ROCm) *WIP / Untested*
 - Coral.ai Edge TPU
 
 
 # Install
 
-The [install.py](examples/install.py) file creates a venv for the project and installs the required packages. 
-Pytorch and onnxruntime are installed by default, face-recognition with D-Lib and opencv are optional (`--face-recognition` and `--opencv`).
+The [install.py](examples/install.py) file creates a venv for the project, installs the required packages and symlinks mlapi.py to /usr/local/bin/mlapi. 
+Pytorch and onnxruntime are installed by default, face-recognition with D-Lib and opencv are additional (`--face-recognition` and `--opencv`).
 
 ## Requirements
 - Clone this repo and cd into the repo directory.
@@ -70,45 +74,64 @@ Pytorch and onnxruntime are installed by default, face-recognition with D-Lib an
 
 These are the user and group that the server will run as.
 
+### OpenCV
+- `--opencv` installs the opencv-contrib-python package (no CUDA support)
+**opencv is a requirement for zomi-server to run**.
+>![TIP]
+> Advanced users can compile opencv with CUDA/cuDNN support and link it into the venv to use GPU acceleration in opencv.
+> A doc will be written outlining the linking process, there are several build tutorials online.
+
+### Additional ML frameworks
+- `--face-recognition` installs the [face-recognition](https://github.com/ageitgey/face_recognition) package with D-Lib (*may require building D-Lib first with CUDA for nvidia support*)
+- Others are planned for the future (deepface, mmdetection, etc.)
+
 ### Examples
+
+#### CPU
 ```bash
-python3 examples/install.py --cpu --debug --dry-run --user <username> --group <groupname>
+python3 examples/install.py --cpu --debug --opencv --dry-run --user <username> --group <groupname>
+```
+#### Nvidia GPU using CUDA 12.1
+```bash
+python3 examples/install.py --gpu cuda12.1 --debug --opencv --dry-run --user <username> --group <groupname>
 ```
 
+#### Nvidia GPU using CUDA 11.8
 ```bash
-python3 examples/install.py --gpu cuda12.1 --debug --dry-run --user <username> --group <groupname>
+python3 examples/install.py --gpu cuda11.8 --debug --opencv --dry-run --user <username> --group <groupname>
+```
+
+#### AMD GPU using ROCm 6.0
+```bash
+python3 examples/install.py --gpu rocm6.0 --debug --opencv --dry-run --user <username> --group <groupname>
 ```
 
 >[!NOTE]
 > `--dry-run` will show the commands that will be run without actually running them.
 
 # Swagger UI
-The server has a built-in Swagger UI for testing the API. It is available at the server root: `http://<server>:<port>/`
+>[!TIP]
+> Swagger UI is available at the server root: `http://<server>:<port>/`
 
->[!IMPORTANT]
-> All requests require a valid JWT token. If you havent turned on auth OR created any users. Any username:password combo will work.
-> Make sure to authorize first!
+The server uses FastAPIs built-in Swagger UI which shows available endpoints, response/request schema and 
+serves as self-explanatory documentation.
+
+>[!WARNING] 
+> Make sure to authorize first! All requests require a valid JWT token. 
+> If you haven't enabled auth in the `server.yml` config file, any username:password combo will work.
 >![Authorize in Swagger UI](docs/assets/zomi-server_auth-button.png)
 
 # User authentication
->[!NOTE]
+>[!CRITICAL]
 > You can enable and disable authentication, but all requests must have a valid JWT token. When authentication is disabled,
 > the login endpoint will accept any username:password combo and supply a valid usable token.
 
-The server uses a JWT system for authentication. When a new user is created, the default user will be 
-automatically disabled. If all users are deleted, the server will enable the default user again.
-
-The current user database is based on the python `tinydb` module.
-
 ## Default user
-The default user is `imoz` with the password `zomi`. Checks are performed that ensure the default user is created on startup.
+The default user is `imoz` with the password `zomi`.
 
 # User Management
-User management is done using the CLI `mlapi` script and the `user` sub-command.
-
-```bash
-mlapi user --help
-```
+User management is done using the `mlapi` script and the `user` sub-command. 
+For more information, please see the [User Management](docs/user_management.md) docs.
 
 # Start the server
 The server can be started with the `mlapi` script.
@@ -121,4 +144,15 @@ The server can be started in debug mode with the `--debug` or `-D` flag.
 
 ```bash
 mlapi -C /path/to/config/file.yml --debug
+```
+
+# SystemD service
+A SystemD service file is provided in the [configs/systemd](configs/systemd/mlapi.service) directory.
+
+```bash
+sudo cp ./configs/systemd/mlapi.service /etc/systemd/system
+sudo chmod 644 /etc/systemd/system/mlapi.service
+sudo systemctl daemon-reload
+# --now also starts the service while enabling it to run on boot
+sudo systemctl enable mlapi.service --now
 ```
