@@ -10,14 +10,15 @@ You can also read the comments in the file for more information until proper doc
 ### Models
 Models are defined in the config file [`models:`](../configs/example_server.yml?plain=1#L127) section. Model names should be unique and are assigned a UUID on startup.
 
-## Substitution Variables / Secrets (secrets.yml)
+### Substitution Variables 
 
 >[!TIP]
 > Sub vars use a bash like syntax: `${VAR_NAME}`
 
 Substitution variables (sub vars) are used in the config file for convenience and to keep sensitive information 
-out of the main config file for when you are sharing it with others.
+out of the main config file for when you are sharing it with others (secrets).
 
+### Secrets (secrets.yml)
 Secrets are sub vars that are stored in a separate file. The secrets file is not required for the server to start 
 if it is not defined in the config file [`substitutions:IncludeFile:`](../configs/example_server.yml?plain=1#L20).
 
@@ -43,7 +44,7 @@ Example of a secret: my secret = ${IMPORTED SECRET}
 ```
 
 ## Requests
->[!NOTE]
+>[!IMPORTANT]
 > All requests require a valid JWT token. If you haven't enabled auth in the `server.yml` config file, any username:password combo will work.
 
 - Someone logs in and receives a JWT token, the token is used in the header of all requests
