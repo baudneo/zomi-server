@@ -67,10 +67,11 @@ addresses that Uvicorn will trust the `X-Forwarded-For` header from. This is use
 reverse proxy server like Nginx or Apache.
 
 #### Entry format
-**This is a tuple list entry**
 - `- <string:ip address>`
->[!WARNING]
-> CIDR notation is not supported. Only single IP addresses are allowed. This is a 
+>[!CAUTION]
+> **This is a list entry**
+> 
+> CIDR notation is not supported, only single IP addresses are allowed. This is a 
 > limitation of the underlying libraries.
 
 ## `debug`
@@ -268,16 +269,11 @@ The [`max`](../configs/example_server.yml?plain=1#L90) key is used to define the
 ### Example
 ```yaml
 locks:
-  # - Locks have been changed to use asyncio.BoundedSemaphore. No more file locking.
   gpu:
-    # - Max number of parallel inference requests running on the GPU (Default: 4)
     max: 6
   cpu:
-    # - Default: 4
     max: 12
   tpu:
-    # - For TPU, unexpected results may occur when max > 1, YMMV.
-    # - Default: 1
     max: 1
 ```
 
@@ -390,39 +386,30 @@ keys are used to override the log file owner and group.
 ### Example
 ```yaml
 logging:
-  # - Logging levels are: debug, info, warning, error, critical
-  # - Root logging level
-  level: ${ML_INSTALL_LOGGING_LEVEL}
+  level: info
 
-  # - Try to sanitize tokens, keys, passwords, usernames, host and ip addresses from logs
   sanitize:
     enabled: yes
-    replacement_str: <sanitized>
-  # - Log to console aka stdout
+    replacement_str: <nuh-uh>
   console:
-    enabled: ${ML_INSTALL_LOGGING_CONSOLE_ENABLED}
-    # - Per module logging level
-    #level: debug
+    enabled: yes
+    level: debug
   syslog:
-    enabled: ${ML_INSTALL_LOGGING_SYSLOG_ENABLED}
-    #level: debug
-    address: ${ML_INSTALL_LOGGING_SYSLOG_ADDRESS}
-  # - Log to file
+    enabled: no
+    level: warning
+    address: 10.0.1.34
   file:
-    enabled: ${ML_INSTALL_LOGGING_FILE_ENABLED}
-    #level: debug
-    # - Directory where log files will be stored
+    enabled: yes
+    level: warning
     path: ${LOGGING_DIR}
-    # - File name for the log file
     file_name: zomi_server.log
-    # - Override log file owner and group
-    # user:
-    # group:
+    user: log-user
+    group: log-group
 ```
 
 ## `models` section
 
-The [`models`](../configs/example_server.yml?plain=1#L123) section is a list of defined model settings.
+The [`models`](../configs/example_server.yml?plain=1#L140) section is a list of defined model settings.
 >[!IMPORTANT]
 > This section only covers the base model config settings (all models will have these settings).
 > Each model `framework` has its own specific settings that are not covered here. For more information on
@@ -435,7 +422,7 @@ The [`models`](../configs/example_server.yml?plain=1#L123) section is a list of 
 - `name: <string>` **REQUIRED**
 - Default: None
   
-The [`name`](../configs/example_server.yml?plain=1#L127) key is used to set the model name. The `name`
+The [`name`](../configs/example_server.yml?plain=1#L142) key is used to set the model name. The `name`
 is used when sending an inference request.
 >[!IMPORTANT]
 > The `name` key is **REQUIRED** and must be unique. The name is lower-cased and preserves spaces.
@@ -446,21 +433,21 @@ is used when sending an inference request.
 - `yes` or `no`
 - Default: `yes`
 
-The [`enabled`](../configs/example_server.yml?plain=1#L128) key is used to enable or disable the model.
+The [`enabled`](../configs/example_server.yml?plain=1#L143) key is used to enable or disable the model.
 
 ### models > `description`
 - `description: <string>`
 - Default: None
 
-The [`description`](../configs/example_server.yml?plain=1#L129) key is used to set the model description. 
+The [`description`](../configs/example_server.yml?plain=1#L144) key is used to set the model description. 
 This key and value are not used for anything other than documentation.
 
 ### models > `type_of`
-- `type_of: <string>` 
+- `type_of: <string>` or `model_type: <string>`
 - `object` or `face` or `alpr`
 - Default: `object`
 
-The [`type_of`](../configs/example_server.yml?plain=1#L130) key is used to set the type of model. 
+The [`type_of`](../configs/example_server.yml?plain=1#L145) key is used to set the type of model. 
 This is used by the zomi-client to determine how to filter the output from the model.
 
 >[!NOTE]
@@ -472,14 +459,14 @@ This is used by the zomi-client to determine how to filter the output from the m
 - `opencv` or `trt` or `ort` or `torch` or `coral` or `http` or `face_recognition` or `alpr`
 - Default: `ort`
 
-The [`framework`](../configs/example_server.yml?plain=1#L133) key is used to set the ML framework to use.
+The [`framework`](../configs/example_server.yml?plain=1#L148) key is used to set the ML framework to use.
 
 ### `sub_framework`
 - `sub_framework: <string>`
 - See the [table below](#available-sub-framework-values) for available sub-frameworks
 - Default: `darknet`
 
-The [`sub_framework`](../configs/example_server.yml?plain=1#L136) key is used to set the sub-framework to use.
+The [`sub_framework`](../configs/example_server.yml?plain=1#L151) key is used to set the sub-framework to use.
 >[!IMPORTANT]
 > The `sub_framework` choices change based on the `framework` key. 
 > This key can be omitted, some models don't process this key.
@@ -501,37 +488,31 @@ The [`sub_framework`](../configs/example_server.yml?plain=1#L136) key is used to
 - `cpu` or `gpu` or `tpu` or `none`
 - Default: `cpu`
 
-The [`processor`](../configs/example_server.yml?plain=1#L139) key is used to set the processor to use for that model.
+The [`processor`](../configs/example_server.yml?plain=1#L154) key is used to set the processor to use for that model.
 
 >[!TIP]
 > When using `framework`:`http`, the `processor` key is ignored/will always be `none`.
 > When using `framework`:`coral`, the `processor` key is ignored/will always be `tpu`.
 
-### `height` and `width`
-- `height: <int>` and `width: <int>`
-- Default: `416`
-
-The *input* [`height`](../configs/example_server.yml?plain=1#L149) and [`width`](../configs/example_server.yml?plain=1#L150) 
-keys are used to set the image dimensions to resize to before passing to the model.
-
 ### `detection_options` subsection
-The [`detection_options`](../configs/example_server.yml?plain=1#L155) subsection is where you define the detection settings for the model.
-Things like confidence thresholds, NMS thresholds, etc.
+The [`detection_options`](../configs/example_server.yml?plain=1#L163) subsection is where you define the 
+detection settings for the model. Things like confidence thresholds, NMS thresholds, etc.
 
 #### `confidence`
 - `confidence: <float>`
 - Range: `0.01 - 1.0`
 - Default: `0.2`
 
-The [`confidence`](../configs/example_server.yml?plain=1#L157) key is used to set the confidence threshold for detection. I recommend 0.2-0.5 to keep 
-the noise down but also allow the client to do some filtering
+The [`confidence`](../configs/example_server.yml?plain=1#L165) key is used to set the confidence 
+threshold for detection. I recommend 0.2-0.5 to keep the noise down but also allow the client to do some filtering
 
 ### `detect_color`
 - `detect_color: <string>`
 - `yes` or no`
 - Default: `no`
 
-The `detect_color` key is used to set whether to detect color in the image. [`color_detection`]() is configured globally
+The [`detect_color`](../configs/example_server.yml?plain=1#L161) key is used to set whether to 
+detect color in the image. [`color_detection`]() is configured globally
 
 ## `color` section
 The [`color`](../configs/example_server.yml?plain=1#L417) section is where you define the color detection settings.
@@ -672,25 +653,19 @@ The `threshold` key is used to set the Non-Max Suppressive threshold. Lower will
 ### Example
 ```yaml
 models:
-  # PyTorch Example (very rudimentary, basics plumbed in)
   - name: TORch tESt  # lower-cased, spaces preserved = torch test
-    description: testing pretrained torch model
+    description: testing pretrained torch model example
     enabled: no
     framework: torch
     pretrained:
       enabled: yes
       name: default
-    #input: /path/to/model.pt
-    #classes: /path/to/classes/file.txt
-    #num_classes: 80
-    type_of: object
+    #input: /path/to/model.pt  # WIP / NOT IMPLEMENTED
+    #classes: /path/to/classes/file.txt  # WIP / NOT IMPLEMENTED
+    #num_classes: 80  # WIP / NOT IMPLEMENTED
+    model_type: object
     processor: gpu
-    # - If using multiple GPUs, set the index of the GPU to use, Ignored if processor is not gpu
-    # - To print out number of available GPUs: python3 -c "import torch; print(torch.cuda.device_count())"
-    # - To get the name of each device: python3 -c "import torch; print(' '.join([torch.cuda.get_device_name(i) for i in range(torch.cuda.device_count())]))"
-    # ** NOTE: The index is zero based, so the first GPU is 0, second is 1, etc.
     gpu_idx: 0
-
     detection_options:
       confidence: 0.2
       nms: 
@@ -733,13 +708,13 @@ The `classes` key is used to set the path to the classes file for the model.
 >[!TIP]
 > If the `classes` key is omitted, the COCO 2017 classes (80 labels) are used.
 
-### `square`
-- `square: <string>` 
-- `yes` or `no`
-- Default: `no`
+### `height` and `width`
+- `height: <int>` and `width: <int>`
+- Default: `416`
 
-The `square` key is used to set whether to square the image by zero-padding the shorter side to 
-match the longer side before resize (AKA letterboxing).
+The *input* [`height`](../configs/example_server.yml?plain=1#L164) and 
+[`width`](../configs/example_server.yml?plain=1#L165) keys are used to set the image dimensions 
+to resize to before passing to the model.
 
 ### `framework`
 - `framework: opencv`
@@ -759,6 +734,14 @@ match the longer side before resize (AKA letterboxing).
 | `vino`        | OpenVINO models *WIP*             |
 | `tensorflow`  | TensorFlow models *WIP*           |
 
+### `square`
+- `square: <string>` 
+- `yes` or `no`
+- Default: `no`
+
+The `square` key is used to set whether to square the image by zero-padding the shorter side to 
+match the longer side before resize (AKA letterboxing).
+
 ### `gpu_idx`
 - `gpu_idx: <int>`
 - Default: 0
@@ -767,6 +750,20 @@ The `gpu_idx` key is used to set the index of the GPU to use.
 
 >[!TIP]
 > If using multiple GPUs, set the index of the GPU to use. Ignored if `processor` is not `gpu`.
+> To get the index and name of each device: 
+> `python3 -c 'import torch; print(f'Available GPUs: {torch.cuda.device_count()}') [print(f"index: {i} - {torch.cuda.get_device_name(i)}") for i in range(torch.cuda.device_count())]'`
+
+### `cuda_fp_16`
+- `cuda_fp_16: <string>`
+- `yes` or `no`
+- Default: `no`
+
+The `cuda_fp_16` key is used to enable or disable FP16 inference on Nvidia GPUs for this model.
+
+### `output_type`
+- `output_type: <string>`
+- `yolov3` or `yolov4` or `yolov7` or `yolov8` or `yolonas` or `yolov10`
+- Default: None
 
 ### Example
 ```yaml
