@@ -119,12 +119,6 @@ class LoggingSettings(LoggingLevelBase):
     sanitize: SanitizeLogging = Field(default_factory=SanitizeLogging)
 
 
-class ColorResult(BaseModel):
-    base: str
-    extended: str
-    rgb: Tuple[int, int, int]
-
-
 class Result(BaseModel):
     label: str
     confidence: float
