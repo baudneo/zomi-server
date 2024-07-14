@@ -611,9 +611,7 @@ class PlateRecognizerModelOptions(BaseModelOptions):
 
 
 class TorchModelOptions(BaseModelOptions):
-    nms: Optional[float] = Field(
-        0.3, ge=0.0, le=1.0, description="Non-Maximum Suppression Threshold"
-    )
+    nms: NMSOptions = Field(default_factory=NMSOptions, description="NMS Options")
 
 
 class BaseModelConfig(BaseModel):
