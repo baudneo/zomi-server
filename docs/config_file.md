@@ -647,9 +647,8 @@ The `gpu_idx` key is used to set the index of the GPU to use.
 
 >[!TIP]
 > If using multiple GPUs, set the index of the GPU to use. Ignored if `processor` is not `gpu`.
-> To print out the number of available GPUs: `python3 -c "import torch; print(torch.cuda.device_count())"`
-> To get the name of each device: `python3 -c "import torch; 
-> print(' '.join([torch.cuda.get_device_name(i) for i in range(torch.cuda.device_count())]))"`
+> To get the index and name of each device: 
+> `python3 -c 'import torch; print(f'Available GPUs: {torch.cuda.device_count()}') [print(f"index: {i} - {torch.cuda.get_device_name(i)}") for i in range(torch.cuda.device_count())]'`
 
 ### `detection_options` subsection
 The `detection_options` subsection is where you define the detection settings for the model.
