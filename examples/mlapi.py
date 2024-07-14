@@ -75,11 +75,14 @@ def _parse_cli():
 
 if __name__ == "__main__":
     import sys
+    import os
 
     script_name = sys.argv[0].split("/")[-1]
     lp = f"{script_name}:"
     args = _parse_cli()
-    config_file = args.get("config")
+    config_file = args.get("config", os.environ.get("ML_SERVER_CONF_FILE"))
+    if not config_file:
+        raise FileNotFoundError("No config file specified: --config or ENV 'ML_SERVER_CONF_FILE'")
     user_mode = None
     if args.get("command") == "user":
         if args.get("user_create"):
