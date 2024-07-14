@@ -212,8 +212,7 @@ models:
       nms:
         enabled: yes
         threshold: .35
-      confidence:
-        0.2
+      confidence: 0.2
 
   # TensorRT Model Example (User must install TensorRT and compile their engine model)
   - name: yolo-nas-s trt
