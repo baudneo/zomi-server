@@ -15,13 +15,14 @@ if it is not defined in the config file [`substitutions:IncludeFile:`](../config
 
 
 ## `substitutions` section
-The `substitutions` section is where you define your substitution variables. These variables can be used throughout the
+The [`substitutions`](../configs/example_server.yml?plain=1#L5) section is where you define your substitution variables. These variables can be used throughout the
 config file for convenience.
 
 ### `IncludeFile`
 - `IncludeFile: /path/to/secrets.yml`
+- Default: `${CFG_DIR}/secrets.yml`
 
-The `IncludeFile` key is used to import additional sub vars from a separate file. This is useful for keeping sensitive
+The [`IncludeFile`](../configs/example_server.yml?plain=1#L20) key is used to import additional sub vars from a separate file. This is useful for keeping sensitive
 information out of the main config file (secrets). If this is defined and the file does not exist, the server will fail to run.
 
 
@@ -47,24 +48,31 @@ Example of a secret: my secret = ${IMPORTED SECRET}
 ```
 
 ## `uvicorn` section
-The `uvicorn` section is where you define the Uvicorn server settings. These settings are passed directly to Uvicorn
+The [`uvicorn`](../configs/example_server.yml?plain=1#L29) section is where you define the Uvicorn server settings. These settings are passed directly to Uvicorn
 and are used to configure the underlying ASGI server.
 
 ### `proxy_headers`
 - `proxy_headers: yes` or `no`
+- Default: `no`
 
-The `proxy_headers` key is used to configure Uvicorn to trust the headers from a proxy server. This is useful when
+The [`proxy_headers`](../configs/example_server.yml?plain=1#L32) key is used to configure Uvicorn to trust the headers from a proxy server. This is useful when
 running behind a reverse proxy server like Nginx or Apache.
 
 ### `forwarded_allow_ips`
 - `- ip.address`
+- Default: None
 
-The `forwarded_allow_ips` key is used to configure Uvicorn to trust the `X-Forwarded-For` header from a proxy server.
+The [`forwarded_allow_ips`](../configs/example_server.yml?plain=1#L37) key is used to configure Uvicorn to trust the `X-Forwarded-For` header from a proxy server.
+
+>[!WARNING]
+> CIDR notation is not supported. Only single IP addresses are allowed. This is a 
+> limitation of the underlying libraries.
 
 ## `debug`
 - `debug: yes` or `no`
+- Default: `no`
 
-The `debug` key is used to enable or disable debug mode. This is useful for troubleshooting issues with the 
+The [`debug`](../configs/example_server.yml?plain=1#L40) key is used to enable or disable debug mode. This is useful for troubleshooting issues with the 
 underlying ASGI server.
 
 ### Example
@@ -72,43 +80,50 @@ underlying ASGI server.
 uvicorn:
   proxy_headers: yes
   forwarded_allow_ips:
-    - 10.0.1.1 
+    - 10.0.1.1
+    - 12.34.56.78
   debug: no
 ```
 
 ## `system` section
-The `system` section is where you define system settings.
+The [`system`](../configs/example_server.yml?plain=1#L42) section is where you define system settings.
 
 ### `config_path`
 - `config_path: /path/to/config/dir`
+- Default: `${BASE_DIR}/conf`
 
-The `config_path` key is used to define the path where the zomi-server will store configuration files.
+The [`config_path`](../configs/example_server.yml?plain=1#L44) key is used to define the path where the zomi-server will store configuration files.
 
 ### `variable_data_path`
 - `variable_data_path: /path/to/variable/data/dir`
+- Default: `${BASE_DIR}/data`
 
-The `variable_data_path` key is used to define the path where the zomi-server will 
+The [`variable_data_path`](../configs/example_server.yml?plain=1#L46) key is used to define the path where the zomi-server will 
 store variable data (tokens, serialized data, etc).
 
 ### `tmp_path`
 - `tmp_path: /path/to/tmp/dir`
+- Default: `${BASE_DIR}/tmp`
 
-The `tmp_path` key is used to define the path where temp files will be stored.
+The [`tmp_path`](../configs/example_server.yml?plain=1#L48) key is used to define the path where temp files will be stored.
 
 ### `image_dir`
 - `image_dir: /path/to/image/dir`
+- Default: `${DATA_DIR}/images`
 
-The `image_dir` key is used to define the path where various images will be stored.
+The [`image_dir`](../configs/example_server.yml?plain=1#L50) key is used to define the path where various images will be stored.
 
 ### `model_dir`
 - `model_dir: /path/to/model/dir`
+- Default: `${BASE_DIR}/models`
 
-The `model_dir` key is used to define the path where the ML model folder structure will be stored.
+The [`model_dir`](../configs/example_server.yml?plain=1#L52) key is used to define the path where the ML model folder structure will be stored.
 
 ### `thread_workers`
-- `thread_workers: <number of max parallel processes>`
+- `thread_workers: <int>`
+- Default: `4`
 
-The `thread_workers` key is used to define the maximum threaded processes. Adjust this to your core count and load.
+The [`thread_workers`](../configs/example_server.yml?plain=1#L54) key is used to define the maximum threaded processes. Adjust this to your core count and load.
 
 ### Example
 ```yaml
@@ -122,51 +137,73 @@ system:
   ```
 
 ## `server` section
-The `server` section is where you define the server settings. There is an `auth` subsection where you can enable or disable
-authentication and set the authentication settings.
+The [`server`](../configs/example_server.yml?plain=1#L56) section is where you define the server settings. There is an 
+[`auth`](../configs/example_server.yml?plain=1#L60) subsection where you can enable or disable authentication and set the authentication settings.
 
 ### `address`
 - `address: ip.address`
+- Default: `0.0.0.0`
 
-The `address` key is used to set the interface IP to listen on.
+The [`address`](../configs/example_server.yml?plain=1#L58) key is used to set the interface IP to listen on.
 
 ### `port`
-- `port: <port_num>`
+- `port: <int>`
+- Default: `5000`
 
-The `port` key is used to set the port to listen on.
+The [`port`](../configs/example_server.yml?plain=1#L59) key is used to set the port to listen on.
 
 ### `auth` subsection
+The [`auth`](../configs/example_server.yml?plain=1#L60) subsection is where you define the authentication settings.
 
 #### `enabled`
 - `enabled: yes` or `no`
+- Default: `no`
 
-The `enabled` key is used to enable or disable authentication. 
-If disabled, anyone can access the API (any username:password combo accpeted) but, they must still 
-login and receive a token.
+The [`enabled`](../configs/example_server.yml?plain=1#L64) key is used to enable or disable authentication. 
+
+>[!IMPORTANT]
+> If **disabled**, _anyone can access the API_ (any username:password combo accepted) but, they must still 
+> login, receive a token and use that token in every request.
 
 #### `db_file` (REQUIRED)
 - `db_file: /path/to/user/db`
+- Default: None
 
-The `db_file` key is used to set where to store the user database
+The [`db_file`](../configs/example_server.yml?plain=1#L67) key is used to set where to store the user database
 >[!IMPORTANT]
 > The `db_file` key is **required**
 
 #### `sign_key` (REQUIRED)
-- `sign_key: <JWT_SIGN_PHRASE>`
+- `sign_key: <string>`
+- Default: None
 
-The `sign_key` key is used to set the JWT signing key
+The [`sign_key`](../configs/example_server.yml?plain=1#L71) key is used to set the JWT signing key
 >[!IMPORTANT]
 > The `sign_key` key is **required**
 
 #### `algorithm`
-- `algorithm: HS256`
+- `algorithm: <string>`
+- Default: `HS256`
 
-The `algorithm` key is used to set the JWT signing algorithm
+| Algorithm Value  | Digital Signature or MAC Algorithm  |
+|------------------|-------------------------------------|
+| HS256	           | HMAC using SHA-256 hash algorithm   |
+| HS384	           | HMAC using SHA-384 hash algorithm   |
+| HS512	           | HMAC using SHA-512 hash algorithm   |
+| RS256	           | RSASSA using SHA-256 hash algorithm |
+| RS384	           | RSASSA using SHA-384 hash algorithm |
+| RS512	           | RSASSA using SHA-512 hash algorithm |
+| ES256	           | ECDSA using SHA-256 hash algorithm  |
+| ES384	           | ECDSA using SHA-384 hash algorithm  |
+| ES512	           | ECDSA using SHA-512 hash algorithm  |
+
+The [`algorithm`](../configs/example_server.yml?plain=1#L74) key is used to set the JWT signing algorithm
 
 #### `expire_after`
-- `expire_after: <time_in_minutes>`
+- `expire_after: <int>`
+- Default: `60`
 
-The `expire_after` key is used to set the JWT token expiration time in minutes
+The [`expire_after`](../configs/example_server.yml?plain=1#L77) key is used to set the JWT token expiration time in minutes
 
 ### Example
 ```yaml
@@ -185,31 +222,34 @@ server:
 >[!NOTE]
 > Locks use asyncio.BoundedSemaphore. No file locking.
 
-The `locks` section is where you define the lock settings.
+The [`locks`](../configs/example_server.yml?plain=1#L79) section is where you define the lock settings.
 
 ### `gpu` subsection
-The `gpu` subsection is where you define the GPU lock settings.
+The [`gpu`](../configs/example_server.yml?plain=1#L81) subsection is where you define the GPU lock settings.
 
 #### `max`
-- `max: <number of max parallel processes>`
+- `max: <int>`
+- Default: `4`
 
-The `max` key is used to define the maximum parallel inference requests running on the GPU.
+The [`max`](../configs/example_server.yml?plain=1#L83) key is used to define the maximum parallel inference requests running on the GPU.
 
 ### `cpu` subsection
-The `cpu` subsection is where you define the CPU lock settings.
+The [`cpu`](../configs/example_server.yml?plain=1#L84) subsection is where you define the CPU lock settings.
 
 #### `max`
-- `max: <number of max parallel processes>`
+- `max: <int>` 
+- Default: `4`
 
-The `max` key is used to define the maximum parallel inference requests running on the CPU.
+The [`max](../configs/example_server.yml?plain=1#L86)` key is used to define the maximum parallel inference requests running on the CPU.
 
 ### `tpu` subsection
-The `tpu` subsection is where you define the TPU lock settings.
+The [`tpu`](../configs/example_server.yml?plain=1#L87) subsection is where you define the TPU lock settings.
 
 #### `max`
-- `max: <number of max parallel processes>`
+- `max: <int>`
+- Default: `1`
 
-The `max` key is used to define the maximum parallel inference requests running on the TPU.
+The [`max`](../configs/example_server.yml?plain=1#L90) key is used to define the maximum parallel inference requests running on the TPU.
 >[!CAUTION]
 > For TPU, unexpected results may occur when max > 1, **YMMV**.
 
@@ -230,87 +270,102 @@ locks:
 ```
 
 ## `logging` section
-The `logging` section is where you define the logging settings.
+The [`logging`](../configs/example_server.yml?plain=1#L92) section is where you define the logging settings.
 
 ### `level`
 - `level: debug` or `info` or `warning` or `error` or `critical`
+- Default: `info`
 
-The `level` key is used to set the **root logging level**.
+The [`level`](../configs/example_server.yml?plain=1#L95) key is used to set the **root logging level**.
 
 ### `sanitize` subsection
-The `sanitize` subsection is where you define the log sanitization settings. This is useful for removing 
+The [`sanitize`](../configs/example_server.yml?plain=1#L98) subsection is where you define the log sanitization settings. This is useful for removing 
 sensitive information from logs like tokens, keys, passwords, usernames, host and ip addresses.
 
 #### `enabled`
 - `enabled: yes` or `no`
+- Default: `no`
 
-The `enabled` key is used to enable or disable log sanitization.
+The [`enabled`](../configs/example_server.yml?plain=1#L99) key is used to enable or disable log sanitization.
 
 #### `replacement_str`
-- `replacement_str: string_to_replace_sensitive_info`
+- `replacement_str: <string>`
+- Default: `<sanitized>`
 
-The `replacement_str` key is used to set the string that will replace the sensitive information.
+The [`replacement_str`](../configs/example_server.yml?plain=1#L100) key is used to set the string that will replace the sensitive information.
 
 ### `console` subsection
-The `console` subsection is where you define the console (stdout) logging settings.
+The [`console`](../configs/example_server.yml?plain=1#L102) subsection is where you define the console (stdout) logging settings.
 
 #### `enabled`
 - `enabled: yes` or `no`
+- Default: `no`
 
-The `enabled` key is used to enable or disable console logging.
+The [`enabled`](../configs/example_server.yml?plain=1#L103) key is used to enable or disable console logging.
 
 #### `level`
 - `level: debug` or `info` or `warning` or `error` or `critical`
+- Default: **root logging level**
 
-Different log types can have different logging levels. This is where you define the console logging level 
-**if you want it to be different than the root logging level**.
+The [`level`](../configs/example_server.yml?plain=1#L105) key is used to set the console logging level.
+
+>[!TIP]
+> Different log types can have different logging levels. 
+> **if you want it to be different from the root logging level**.
 
 ### `syslog` subsection
-The `syslog` subsection is where you define the syslog logging settings.
+The [`syslog`](../configs/example_server.yml?plain=1#L106) subsection is where you define the syslog logging settings.
 
 #### `enabled`
 - `enabled: yes` or `no`
+- Default: `no`
 
-The `enabled` key is used to enable or disable syslog logging.
+The [`enabled`](../configs/example_server.yml?plain=1#L107) key is used to enable or disable syslog logging.
+
+#### `level`
+- `level: debug` or `info` or `warning` or `error` or `critical`
+- Default: **root logging level**
+
+The [`level`](../configs/example_server.yml?plain=1#L108) key is used to set the syslog logging level.
 
 #### `address`
-- `address: /dev/log` or `ip.address`
+- `address: <string>`
+- Default: `/dev/log`
 
-The `address` key is used to set the syslog address.
-
-#### `level`
-- `level: debug` or `info` or `warning` or `error` or `critical`
-
-Different log types can have different logging levels. This is where you define the syslog logging level
-**if you want it to be different than the root logging level**.
+The [`address`](../configs/example_server.yml?plain=1#L109) key is used to set the syslog address.
 
 ### `file` subsection
-The `file` subsection is where you define the file logging settings.
+The [`file`](../configs/example_server.yml?plain=1#L111) subsection is where you define the file logging settings.
 
 #### `enabled`
 - `enabled: yes` or `no`
+- Default: `no`
 
-The `enabled` key is used to enable or disable file logging.
+The [`enabled`](../configs/example_server.yml?plain=1#L112) key is used to enable or disable file logging.
 
 #### `level`
 - `level: debug` or `info` or `warning` or `error` or `critical`
+- Default: **root logging level**
 
-Different log types can have different logging levels. This is where you define the file logging level
+The [`level`](../configs/example_server.yml?plain=1#L113) key is used to set the file logging level.2
 
 #### `path`
-- `path: /path/to/log/dir`
+- `path: <string>`
+- Default: `${LOG_DIR}`
 
-The `path` key is used to set the directory where log files will be stored.
+The [`path`](../configs/example_server.yml?plain=1#L115) key is used to set the directory where log files will be stored.
 
 #### `file_name`
-- `file_name: log_file_name.log`
+- `file_name: <string>`
+- Default: `zomi_server.log`
 
-The `file_name` key is used to set the name of the log file.
+The [`file_name`](../configs/example_server.yml?plain=1#L117) key is used to set the name of the log file.
 
 #### `user` and `group`
-- `user: log_file_owner` and `group: log_file_group`
+- `user: <string>` and `group: <string>`
+- Default: None
 
-The `user` and `group` keys are used to override the log file owner and group.
+The [`user`](../configs/example_server.yml?plain=1#L119) and [`group`](../configs/example_server.yml?plain=1#L120) keys are used to override the log file owner and group.
 
 ### Example
 ```yaml
@@ -347,107 +402,168 @@ logging:
 
 ## `models` section
 
-The `models` section is a list of defined model settings. Each model config is a dictionary.
+The [`models`](../configs/example_server.yml?plain=1#L123) section is a list of defined model settings. Each model config is a dictionary.
 
 ### `models > name`
-- `name: model_name`
-
-The `name` key is used to set the model name. This is used when sending an inference request.
->[!TIP]
-> the name is lower-cased and preserves spaces. `YOLO v10` will be lower-cased to `yolo v10`, 
-> `TorcH TesT` will be lower-cased to `torch test`.
+- `name: <string>` **REQUIRED**
+- Default: None
+  
+The [`name`](../configs/example_server.yml?plain=1#L127) key is used to set the model name. This is used when sending an inference request.
+>[!IMPORTANT]
+> The `name` key is **REQUIRED** and must be unique. The name is lower-cased and preserves spaces.
+> `YOLO v10` will be lower-cased to `yolo v10`, `TorcH TesT` will be lower-cased to `torch test`.
 
 ### `enabled`
 - `enabled: yes` or `no`
+- Default: `yes`
 
-The `enabled` key is used to enable or disable the model.
+The [`enabled`](../configs/example_server.yml?plain=1#L128) key is used to enable or disable the model.
 
 ### `description`
-- `description: model description: can be short and sweet or detailed.`
+- `description: <string>`
+- Default: None
 
-The `description` key is used to set the model description. This key and value are not used for anything other than
+The [`description`](../configs/example_server.yml?plain=1#L129) key is used to set the model description. This key and value are not used for anything other than
 documentation.
 
 ### `type_of`
-- `type_of: object` or `face` or `alpr`
+- `type_of: <string>` 
+- `object` or `face` or `alpr`
+- Default: `object`
 
-The `type_of` key is used to set the type of model. This is used to determine how to process the output from the model.
+The [`type_of`](../configs/example_server.yml?plain=1#L130) key is used to set the type of model. This is used to determine how to process the output from the model.
 
 >[!NOTE]
 > The `type_of` key can change what model keys are available! Different combinations of `type_of`, 
 > `framework` and `sub-framework` can result in different model keys being available.
 
 ### `framework`
-- `framework: opencv` or `trt` or `ort` or `torch` or `coral` or `http` or `face_recognition` or `alpr`
+- `framework: <string>` 
+- `opencv` or `trt` or `ort` or `torch` or `coral` or `http` or `face_recognition` or `alpr` or `rekognition``
+- Default: `ort`
 
-The `framework` key is used to set the ML framework to use.
+The [`framework`](../configs/example_server.yml?plain=1#L133) key is used to set the ML framework to use.
 
 ### `sub_framework`
-- `sub_framework: darknet` or `onnx` or `platerecognizer` or `rekognition`
+- `sub_framework: <string>`
+- `darknet` or `onnx` or `caffe` or `trt` or `torch` or `vino` or `tensorflow` or `none`
 
-The `sub_framework` key is used to set the sub-framework to use. The `sub_framework` changes 
-based on the `framework` key.
+The [`sub_framework`](../configs/example_server.yml?plain=1#L136) key is used to set the sub-framework to use.
+
+| Framework        | Sub-framework(s)                                                          |
+|------------------|---------------------------------------------------------------------------|
+| opencv           | `darknet`, `onnx` , [`caffe`, `trt`, `torch`, `vino`, `tensorflow`] *WIP* |
+| torch            | None                                                                      |
+| ort              | None                                                                      |
+| trt              | None                                                                      |
+| coral            | None                                                                      |
+| http             | `none` , `rekognition`                                                    |
+| face_recognition | None                                                                      |
+| alpr             | `openalpr`, `plate_recognizer`, [`rekor`] *WIP*                           | 
+
+
+>[!IMPORTANT]
+> The `sub_framework` choices change based on the `framework` key.
 
 ### `processor`
-- `processor: cpu` or `gpu` or `tpu` or `none`
+- `processor: <string>` 
+- `cpu` or `gpu` or `tpu` or `none`
+- Default: `cpu`
 
-The `processor` key is used to set the processor to use for that model.
+The [`processor`](../configs/example_server.yml?plain=1#L139) key is used to set the processor to use for that model.
 
 >[!TIP]
 > When using `framework: http`, the `processor` key is ignored/will always be `none`..
 
-### `input`
-- `input: /path/to/model/file`
-
-The `input` key is used to set the path to the model file for most `framework` types 
-and is **REQUIRED** for those models.
-
-### `config`
-- `config: /path/to/config/file`
-
-The `config` key is used to set the path to the config file for models that require it. 
-So far, only `.weights` files require a `.cfg` file.
-
-### `classes`
-- `classes: /path/to/classes/file`
-
-The `classes` key is used to set the path to the classes file for the model. 
-If this is not configured, the default COC17 (80) classes will be used.
-
 ### `height` and `width`
 - `height: <int>` and `width: <int>`
+- Default: `416`
 
-The `height` and `width` keys are used to set the image dimensions to resize to before passing to the model.
-Both default to `416`.
-
-### `square`
-- `square: yes` or `no`
-
-The `square` key is used to set whether to square the image by zero-padding the shorter side to 
-match the longer side before resize (AKA letterboxing).
+The *input* [`height`](../configs/example_server.yml?plain=1#L149) and [`width`](../configs/example_server.yml?plain=1#L150) 
+keys are used to set the image dimensions to resize to before passing to the model.
 
 ### `detection_options` subsection
-The `detection_options` subsection is where you define the detection settings for the model.
+The [`detection_options`](../configs/example_server.yml?plain=1#L155) subsection is where you define the detection settings for the model.
 Things like confidence thresholds, NMS thresholds, etc.
 
 #### `confidence`
 - `confidence: <float:0.01-1.0>`
 
-The `confidence` key is used to set the confidence threshold for detection. I recommend 0.2-0.5 to keep 
+The [`confidence`](../configs/example_server.yml?plain=1#L157) key is used to set the confidence threshold for detection. I recommend 0.2-0.5 to keep 
 the noise down but also allow the client to do some filtering
 
 #### `nms`
 - `nms: <float:0.01-1.0>`
 
-The `nms` key is used to set the Non-Max Suppressive threshold. Lower will filter more overlapping bounding boxes out.
+The [`nms`](../configs/example_server.yml?plain=1#L159) key is used to set the Non-Max Suppressive threshold. Lower will filter more overlapping bounding boxes out.
 
 >[!IMPORTANT]
-> torch, ort, trt and coral `framework` models use a different nms format.
+> `framework` models: `torch`, `ort`, `trt` and `coral` use a different nms format that allows for enable/disable.
 ```yaml
 nms:
-    enabled: yes # no
+    enabled: yes
     threshold: 0.4
 ```
+
+### `detect_color`
+- `detect_color: <string>`
+- `yes` or no`
+- Default: `no`
+
+The `detect_color` key is used to set whether to detect color in the image. [`color_detection`]() is configured globally
+
+## `color` section
+The [`color`](../configs/example_server.yml?plain=1#L417) section is where you define the color detection settings.
+
+>[!IMPORTANT]
+> In the model config, there is a boolean key `detect_color` that can override the global 
+> `color_detection>enabled` key *for that specific monitor*.
+
+### `enabled`
+- `enabled: <string>`
+- `yes` or `no`
+- Default: `no`
+
+The [`enabled`](../configs/example_server.yml?plain=1#L420) key is used to enable or disable color detection.
+
+### `top_n`
+- `top_n: <int>`
+- Default: `5`
+
+The [`top_n`](../configs/example_server.yml?plain=1#L422) key is used to set the number of top colors to return.
+
+### `spec`
+- `spec: <string>`
+- `html4` or `css2` or `css21` or `css3`
+
+The [`spec`](../configs/example_server.yml?plain=1#L424) key is used to set the color specification to use. 
+
+>[!IMPORTANT]
+> The `spec` will change how the color string is returned. html might = `gray`, css3 might = `lightgray`, etc.
+
+### `labels` subsection
+The [`labels`](../configs/example_server.yml?plain=1#L426) subsection is where you define the labels that 
+color detection should be run on.
+
+#### Entry format
+- `- <string>`
+
+### Example
+```yaml
+color:
+  enabled: no
+  top_n: 4
+  spec: html4
+  labels:
+    - car
+    - truck
+    - bus
+    - motorcycle
+    - bicycle
+```
+
+>[!TIP]
+> If no labels are configured, color detection will run on all detected objects
 
 # Models
 Models are defined in the config file `models:` section. Model names should be unique and are assigned a UUID on startup.
@@ -564,25 +680,57 @@ and so is basic logic for ONNX models.
 > There was an open issue which may be resolved by now. 
 > The `darknet`:`framework` `onnx`:`sub-framework` will be worked on in the future.
 
-### `config`
-- `config: /path/to/config/file`
 
-The `config` key is used to set the path to the config file for models that require it 
-(usually only .weights files require a .cfg file).
+### `input`
+- `input: <string>` **REQUIRED**
+- Default: None
+
+The [`input`](../configs/example_server.yml?plain=1#L143) key is used to set the path to the model file
+
+>![!IMPORTANT]
+> The `input` key is **REQUIRED** for `opencv` `framework` models.
+
+### `config`
+- `config: <string>`
+- Default: None
+
+The [`config`](../configs/example_server.yml?plain=1#L144) key is used to set the path to the config file for models that require it. 
+
+>[!TIP]
+> `opencv` `framework` models require a `config` file.
+
+### `classes`
+- `classes: <string>`
+- Default: COC0 2017 classes (80 labels)
+
+The [`classes`](../configs/example_server.yml?plain=1#L145) key is used to set the path to the classes file for the model. 
+
+### `square`
+- `square: <string>` 
+- `yes` or `no`
+- Default: `no`
+
+The [`square`](../configs/example_server.yml?plain=1#L153) key is used to set whether to square the image by zero-padding the shorter side to 
+match the longer side before resize (AKA letterboxing).
 
 ### `framework`
 - `framework: opencv`
 
-Set the ML framework to use `opencv`.
-
 ### `sub_framework`
-- `sub_framework: darknet` or `onnx`
+- `sub_framework: <string>`
+- `darknet` or `onnx`
+- *WIP* `caffe`, `trt`, `torch`, `vino`, `tensorflow`
 
-The `sub_framework` key is used to set the sub-framework to use. The `sub_framework` changes
-based on the `framework` key.
+| Sub Framework | Description                     |
+|---------------|---------------------------------|
+| `darknet`     | DarkNet models (YOLO v 3, 4, 7) |
+| `onnx`        | ONNX models *WIP*               |
+| `caffe`       | Caffe models *WIP*              |
+| `trt`         | TensorRT models *WIP*           |
+| `torch`       | PyTorch models *WIP*            |
+| `vino`        | OpenVINO models *WIP*           |
+| `tensorflow`  | TensorFlow models *WIP*         |
 
-- `darknet` - DarkNet models (YOLO v 3, 4, 7)
-- `onnx` - ONNX models *WIP*
 
 ### Example
 ```yaml
@@ -603,6 +751,8 @@ models:
       confidence: 0.2
       nms: 0.4
 ```
+
+## TPU model config
 
 ### Example
 ```yaml
@@ -632,7 +782,13 @@ models:
         enabled: yes
         threshold: .35
       confidence: 0.2
+```
 
+## Tensor RT model config
+
+### Example
+```yaml
+models:
   # TensorRT Model Example (User must install TensorRT and compile their engine model)
   - name: yolo-nas-s trt
     enabled: no
@@ -642,7 +798,7 @@ models:
     framework: trt
 
     type_of: object
-    # - Only ort and trt support output_type
+    # - Only ort, torch and trt support output_type
     # - Tells the server how to process the output from the model into confidence, bounding box, and class id
     output_type: yolonas
 
@@ -656,7 +812,13 @@ models:
       nms:
         enabled: yes
         threshold: 0.44
+```
 
+## ONNX model config
+
+### Example
+```yaml
+models:
   # ONNX Runtime Example
   - name: yolov8s onnx
     description: "Ultralytics YOLO v8s pretrained ONNX model on onnxruntime"
@@ -674,7 +836,7 @@ models:
     input: "/shared/models/yolo/yolov8s.onnx"
     #classes: path/to/classes.file
 
-    # - Only ort and trt support output_type
+    # - Only ort, torch and trt support output_type
     # - Tells the server how to process the output from the model into confidence, bounding box, and class id
     # - [yolonas, yolov8, yolov10]
     output_type: yolov8
@@ -689,7 +851,13 @@ models:
       nms:
         enabled: yes
         threshold: 0.44
+```
 
+## AWS Rekognition model config
+
+### Example
+```yaml
+models:
   # AWS Rekognition Example *WIP*
   - name: aws
     description: "AWS Rekognition remote HTTP detection (PAID per request!)"
@@ -701,7 +869,13 @@ models:
 
     detection_options:
       confidence: 0.4455
+```
 
+## face_recognition model config
+
+### Example
+```yaml
+models:
   # face-recognition Example
   - name: dlib face
     enabled: no
@@ -757,7 +931,14 @@ models:
 
       # - Max width of image to feed the model (scaling applied)
       max_size: 600
+```
 
+## ALPR model config
+ALPR models have `sub-framework` and then another subtype `api_type` that can be `cloud` or `local`.
+
+### Example
+```yaml
+models:
   # - OpenALPR local binary Example
   - name: "openalpr cpu"
     # ** NOTE:
@@ -797,7 +978,11 @@ models:
       binary_params: "--config /etc/alpr/openalpr-gpu.conf"
       confidence: 0.5
       max_size: 600
+```
 
+### Example
+```yaml
+models:
   # - Plate Recognizer Example
   - name: 'Platerec'
     enabled: no
