@@ -409,7 +409,7 @@ class ServerSettings(BaseModel):
         expire_after: int = Field(
             60, ge=1, description="JWT Expiration time in minutes"
         )
-        sign_key: SecretStr = Field("CHANGE ME!!!!", description="JWT Sign Key")
+        sign_key: Optional[SecretStr] = Field(None, description="JWT Sign Key")
         algorithm: str = Field("HS256", description="JWT Algorithm")
 
     address: Union[IPvAnyAddress] = Field(
@@ -437,14 +437,18 @@ class TRTModelOptions(BaseModelOptions):
     nms: NMSOptions = Field(default_factory=NMSOptions, description="NMS Options")
 
 
+class TPUModelOptions(BaseModelOptions, extra="allow"):
+    nms: NMSOptions = Field(default_factory=NMSOptions, description="NMS Options")
+
+
+class TorchModelOptions(BaseModelOptions):
+    nms: NMSOptions = Field(default_factory=NMSOptions, description="NMS Options")
+
+
 class CV2YOLOModelOptions(BaseModelOptions):
     nms: Optional[float] = Field(
         0.4, ge=0.0, le=1.0, description="Non-Maximum Suppression Threshold"
     )
-
-
-class TPUModelOptions(BaseModelOptions, extra="allow"):
-    nms: NMSOptions = Field(default_factory=NMSOptions, description="NMS Options")
 
 
 class FaceRecognitionLibModelDetectionOptions(BaseModelOptions):
@@ -599,10 +603,6 @@ class PlateRecognizerModelOptions(BaseModelOptions):
         return v
 
 
-class TorchModelOptions(BaseModelOptions):
-    nms: NMSOptions = Field(default_factory=NMSOptions, description="NMS Options")
-
-
 class BaseModelConfig(BaseModel):
     """This is the base model config that all models inherit from."""
 
@@ -658,6 +658,13 @@ class BaseModelConfig(BaseModel):
         description="Enable Color Detection for the cropped bounding boxes of the model",
     )
 
+    labels: List[str] = Field(
+        default=None,
+        description="model labels parsed into a list of strings",
+        repr=False,
+        exclude=True,
+    )
+
     @field_validator("name")
     @classmethod
     def check_name(cls, v):
@@ -673,7 +680,12 @@ class TPUModelConfig(BaseModelConfig):
     classes: Optional[Path] = Field(
         None, description="model classes file path (Optional)"
     )
-
+    height: Optional[int] = Field(
+        416, ge=1, description="Model input height (resized for model)"
+    )
+    width: Optional[int] = Field(
+        416, ge=1, description="Model input width (resized for model)"
+    )
     square: Optional[bool] = Field(
         False, description="Zero pad the image to be a square; 1920x1080 = 1920x1920"
     )
@@ -783,14 +795,7 @@ class CV2YOLOModelConfig(BaseModelConfig):
     )
     gpu_idx: Optional[int] = Field(0, description="GPU Index to use")
 
-    onnx_type: Optional[ONNXType] = Field(None, description="ONNX Model Type")
-
-    labels: List[str] = Field(
-        default=None,
-        description="model labels parsed into a list of strings",
-        repr=False,
-        exclude=True,
-    )
+    output_type: Optional[OutputType] = Field(None, description="Model output type")
 
     @model_validator(mode="after")
     def _validate_model(self):
