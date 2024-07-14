@@ -106,7 +106,6 @@ logging:
   syslog:
     enabled: ${ML_INSTALL_LOGGING_SYSLOG_ENABLED}
     #level: debug
-    #address: /dev/log
     address: ${ML_INSTALL_LOGGING_SYSLOG_ADDRESS}
   # - Log to file
   file:
@@ -127,6 +126,8 @@ models:
   # OpenCV DarkNet Model Example
   - name: YOLOv4  # Name will be lower cased, spaces are preserved; 'yolov4'
     enabled: no
+    description: "YOLOv4 DarkNet pretrained model"
+    #type_of: object  # Default is object / object , face, alpr
     # - Framework to use: opencv, trt, ort, torch, coral, http, face_recognition, alpr
     # - trt = tensor rt, ort = onnxruntime
     framework: opencv
