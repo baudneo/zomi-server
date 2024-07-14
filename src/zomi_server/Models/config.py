@@ -378,10 +378,6 @@ class LockSetting(BaseModel):
 
 
 class LockSettings(DefaultEnabled):
-    dir: Path = Field(
-        None,
-        description="Directory for the lock files",
-    )
     gpu: LockSetting = Field(
         default_factory=LockSetting, description="GPU Lock Settings"
     )
@@ -421,9 +417,6 @@ class ServerSettings(BaseModel):
     )
 
     port: PositiveInt = Field(5000, description="Server listen port")
-    reload: bool = Field(
-        default=False, description="Uvicorn reload - For development only"
-    )
     debug: bool = Field(
         default=False, description="Uvicorn debug mode - For development only"
     )
@@ -638,12 +631,7 @@ class BaseModelConfig(BaseModel):
     processor: Optional[ModelProcessor] = Field(
         ModelProcessor.CPU, description="Processor to use for model"
     )
-    height: Optional[int] = Field(
-        416, ge=1, description="Model input height (resized for model)"
-    )
-    width: Optional[int] = Field(
-        416, ge=1, description="Model input width (resized for model)"
-    )
+
 
     detection_options: Union[
         BaseModelOptions,
@@ -690,14 +678,7 @@ class TPUModelConfig(BaseModelConfig):
         False, description="Zero pad the image to be a square; 1920x1080 = 1920x1920"
     )
 
-    labels: List[str] = Field(
-        default=None,
-        description="model labels parsed into a list of strings",
-        repr=False,
-        exclude=True,
-    )
-
-    _validate_labels = field_validator("labels")(validate_model_labels)
+    _validate_labels = field_validator("labels", check_fields=False)(validate_model_labels)
 
     @field_validator("config", "input", "classes", mode="before")
     @classmethod
@@ -731,16 +712,8 @@ class ORTModelConfig(BaseModelConfig):
     square: Optional[bool] = Field(
         False, description="Zero pad the image to be a square"
     )
-
-    labels: List[str] = Field(
-        default=None,
-        description="model labels parsed into a list of strings",
-        repr=False,
-        exclude=True,
-    )
     output_type: Optional[OutputType] = None
     gpu_idx: Optional[int] = 0
-    extra: Optional[str] = None
 
     @model_validator(mode="after")
     def _validate_model(self):
@@ -772,14 +745,6 @@ class TRTModelConfig(BaseModelConfig):
     )
     output_type: Optional[OutputType] = None
     gpu_idx: Optional[int] = 0
-    lib_path: Optional[Path] = None
-
-    labels: List[str] = Field(
-        default=None,
-        description="model labels parsed into a list of strings",
-        repr=False,
-        exclude=True,
-    )
 
     @model_validator(mode="after")
     def _validate_model(self):
@@ -798,10 +763,6 @@ class TRTModelConfig(BaseModelConfig):
 
 
 class CV2YOLOModelConfig(BaseModelConfig):
-    class ONNXType(str, enum.Enum):
-        v5 = "yolov5"
-        v8 = "yolov8"
-        nas = "yolo-nas"
 
     input: Path = Field(None, description="model file/dir path (Optional)")
     classes: Path = Field(default=None, description="model labels file path (Optional)")
