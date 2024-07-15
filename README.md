@@ -57,28 +57,30 @@ serves as self-explanatory documentation.
 ## Default user
 The default user is `imoz` with the password `zomi`.
 
+# Start the server
+>[!TIP]
+>After installation, there should be a system-wide `mlapi` script command available in `/usr/local/bin`
+
+The server can be started with the `mlapi` script.
+```bash
+mlapi -C /path/to/config/file.yml #--debug
+
+# The server can be started in debug mode with the `--debug` or `-D` flag.
+mlapi -C /path/to/config/file.yml --debug
+```
+
 # User Management
 User management is done using the `mlapi` script and the `user` sub-command. 
 For more information, please see the [User Management](docs/user_management.md) docs.
 
-# Start the server
->[!TIP]
->After installation, there should be a system-wide `mlapi` script command available in `/use/local/bin`
-
-The server can be started with the `mlapi` script.
-```bash
-mlapi -C /path/to/config/file.yml
-```
-
-## Debugging
-The server can be started in debug mode with the `--debug` or `-D` flag.
-```bash
-mlapi -C /path/to/config/file.yml --debug
-```
-
 # SystemD service
+>[!IMPORTANT]
+> You must edit the following example files first before installing them!
+
 A SystemD service file example is provided in the [configs/systemd](configs/systemd/mlapi.service) directory.
+
 ```bash
+# Edit the service file first!
 sudo cp ./configs/systemd/mlapi.service /etc/systemd/system
 sudo chmod 644 /etc/systemd/system/mlapi.service
 sudo systemctl daemon-reload
@@ -87,10 +89,17 @@ sudo systemctl enable mlapi.service --now
 ```
 
 # Fail2Ban
+>[!IMPORTANT]
+> You must edit the following example files first before installing them!
+
 A Fail2Ban filter and jail configuration example is provided in the [configs/fail2ban](configs/fail2ban) directory.
 
 # logrotate
+>[!IMPORTANT]
+> You must edit the following example files first before installing them!
+
 A logrotate configuration file example is provided in the [configs/logrotate](configs/logrotate) directory.
 
 # Docker
-Work is being done to create Docker images for the server.
+>[!CAUTION]
+> Work is being done to create Docker images for the server.
