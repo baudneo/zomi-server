@@ -1,0 +1,1 @@
+See [http docs](../http.md#plate-recognizer-snapshot-cloud-api) for more info.

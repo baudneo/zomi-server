@@ -5,15 +5,21 @@ The server is configured using a YAML file. Any changes require a server restart
 The server will not start if the config file is missing or malformed.
 
 The [example_server.yml](../configs/example_server.yml) file is used as a template for the `install.py` script. 
-You can also read the comments in the file for more information until proper documentation is written.
+
+There are [documents available](Config/README.md) for each section of the config file.
 
 ### Models
-Models are defined in the config file [`models:`](../configs/example_server.yml?plain=1#L127) section. Model names should be unique and are assigned a UUID on startup.
+Models are defined in the config file [`models:`](../configs/example_server.yml?plain=1#L127) section. 
+Model names should be unique and are assigned a UUID on startup.
+
+See the [models docs](Config/models.md) for more info.
 
 ### Substitution Variables 
 
 >[!TIP]
 > Sub vars use a bash like syntax: `${VAR_NAME}`
+> 
+> See the [substitutions docs](Config/substitutions.md) for more info.
 
 Substitution variables (sub vars) are used in the config file for convenience and to keep sensitive information 
 out of the main config file for when you are sharing it with others (secrets).
@@ -22,35 +28,14 @@ out of the main config file for when you are sharing it with others (secrets).
 Secrets are sub vars that are stored in a separate file. The secrets file is not required for the server to start 
 if it is not defined in the config file [`substitutions:IncludeFile:`](../configs/example_server.yml?plain=1#L20).
 
-### Example
-#### `secrets.yml`
-```yaml 
-server:
-  IMPORTED SECRET: "This is from the secrets file!"
-```
-#### `server.yml`
-```yaml
-substitutions:
-  EXAMPLE: "World!"
-  BASE_DIR: /opt/zomi/server
-  CFG_DIR: ${BASE_DIR}/conf
-  LOG_DIR: ${BASE_DIR}/logs
-  
-  # Import additional sub vars from this file
-  IncludeFile: /path/to/secrets.yml
-
-Example of a sub var: "Hello, ${EXAMPLE}"
-Example of a secret: my secret = ${IMPORTED SECRET}
-```
-
 ## Requests
 >[!IMPORTANT]
 > All requests require a valid JWT token. If you haven't enabled auth in the `server.yml` config file, any username:password combo will work.
 
 - Someone logs in and receives a JWT token, the token is used in the header of all requests
+- A request is made to the server, regardless of if auth is enabled or not, the server will check the validity of the token
 
 ### Inference
-- A request is made to the server, regardless of if auth is enabled or not, the server will check the validity of the token
 - an inference request is made using JSON:
     ```json
     {
@@ -63,7 +48,6 @@ Example of a secret: my secret = ${IMPORTED SECRET}
 - the server will return the results in JSON (See [Swagger UI](../README.md#swagger-ui) to view the JSON response schema)
 
 ### Annotate Images
-- A request is made to the server, regardless of if auth is enabled or not, the server will check the validity of the token
 - an annotation request is made using JSON:
     ```json
     {
@@ -78,5 +62,4 @@ Example of a secret: my secret = ${IMPORTED SECRET}
 >[!NOTE]
 > There are several different available model endpoints based on the model type, processor or framework and one that shows all models.
 
-- A request is made to the server, regardless of if auth is enabled or not, the server will check the validity of the token
 - the server will return a list of available models in JSON (See [Swagger UI](../README.md#swagger-ui) to view the JSON response schema and available endpoints)
