@@ -1244,7 +1244,7 @@ class ZoMiEnvBuilder(venv.EnvBuilder):
         if opencv:
             _a = list(_args)
             logger.info(f"\n\n{self.lp} Installing opencv-contrib [CPU only cv2]...")
-            _a.append("opencv-contrib-python")
+            _a.append("opencv-contrib-python-headless")
             _popen(_a)
 
         # Install ageitgey/face_recognition
