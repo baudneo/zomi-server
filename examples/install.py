@@ -1250,15 +1250,21 @@ class ZoMiEnvBuilder(venv.EnvBuilder):
 
         if opencv:
             _a = list(_args)
-            logger.info(f"\n\n{self.lp} Installing opencv-contrib [CPU only cv2]...")
+            logger.info(f"\n\n{self.lp} Installing opencv-contrib-python-headless [CPU only / No GUI libs]...")
             _a.append("opencv-contrib-python-headless")
             _popen(_a)
 
         # Install ageitgey/face_recognition
         if args.face_rec:
-            logger.info(f"\n\n{self.lp} Attempting to install face-recognition, this may take some time...")
+            logger.info(f"\n\n{self.lp} Attempting to install ageitgey/face-recognition, this may take some time...")
             _a = list(_args)
             _a.append("face-recognition")
+            _popen(_a)
+
+        if args.deepface:
+            logger.info(f"\n\n{self.lp} Attempting to install deepface facial data framework, this may take some time...")
+            _a = list(_args)
+            _a.append("deepface")
             _popen(_a)
 
 
