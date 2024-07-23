@@ -523,11 +523,9 @@ class TensorRtDetector:
 
         # rescale boxes
         boxes = self.rescale_boxes(_boxes)
-        # todo: make NMS optional, YOLO v10 is NMS free so,
-        #  we dont want to incur the performance penalty
         do_nms = True
         if do_nms is True:
-            nms, conf = self.options.nms, self.options.confidence
+            nms, conf = self.options.nms.threshold, self.options.confidence
             indices = cv2.dnn.NMSBoxes(boxes, scores, conf, nms)
             if len(indices) == 0:
                 logger.debug(
