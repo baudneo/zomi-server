@@ -7,7 +7,7 @@ Don't forget to create 2 copies of the alpr config file. One for CPU and one for
 If the git repo for openalpr is at `/opt/openalpr` this would be the commands to create the config files:
 
 ```bash
-cp /opt/openalpr/config/openalpr.conf.defaults /etc/openalpr/openalpr.conf \
-&& cp /tmp/etc/openalpr/openalpr.conf /etc/openalpr/openalpr.conf.gpu \
+cp /opt/openalpr/config/openalpr.conf /etc/openalpr/openalpr.conf \
+&& cp /etc/openalpr/openalpr.conf /etc/openalpr/openalpr.conf.gpu \
 && sed -i 's/detector =.*/detector = lbpgpu/g' /etc/openalpr/openalpr.conf.gpu
 ```
