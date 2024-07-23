@@ -390,12 +390,12 @@ def parse_cli():
         "--cpu",
         action="store_true",
         dest="cpu",
-        help="Install CPU only packages for pytorch",
+        help="Install CPU only packages for pytorch / onnx-runtime",
     )
     processor_group.add_argument(
         "--gpu",
         dest="gpu",
-        help="Install GPU only packages for pytorch (only choose one)",
+        help="Install GPU only packages for pytorch / onnx-runtime",
         choices=("cuda12.1", "cuda11.8", "rocm6.0"),
         default=None,
         nargs=1,
@@ -412,8 +412,15 @@ def parse_cli():
         "--ageitgey",
         action="store_true",
         dest="face_rec",
-        help="Install ageitgey face recognition framework",
+        help="Install ageitgey (Dlib based) face detection/recognition framework (legacy)",
     )
+    parser.add_argument(
+        "--deepface",
+        action="store_true",
+        dest="deepface",
+        help="Install deepface python facial data framework (tensorflow/keras)",
+    )
+
 
     parser.add_argument(
         "--no-cache-dir",
