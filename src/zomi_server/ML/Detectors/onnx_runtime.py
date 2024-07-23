@@ -681,7 +681,7 @@ class ORTDetector(OCRBase):
         if return_empty:
             return [], [], []
         indices = cv2.dnn.NMSBoxes(
-            boxes, scores, self.options.confidence, self.options.nms
+            boxes, scores, self.options.confidence, self.options.nms.threshold
         )
         if len(indices) == 0:
             logger.debug(
