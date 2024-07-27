@@ -1265,6 +1265,7 @@ class ZoMiEnvBuilder(venv.EnvBuilder):
             logger.info(f"\n\n{self.lp} Attempting to install deepface facial data framework, this may take some time...")
             _a = list(_args)
             _a.append("deepface")
+            _a.append("annoy>=1.17.3")
             _popen(_a)
 
 
