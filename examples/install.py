@@ -1256,17 +1256,46 @@ class ZoMiEnvBuilder(venv.EnvBuilder):
 
         # Install ageitgey/face_recognition
         if args.face_rec:
-            logger.info(f"\n\n{self.lp} Attempting to install ageitgey/face-recognition, this may take some time...")
+            logger.info(f"\n\n{self.lp} Attempting to install ageitgey/face-recognition, "
+                        f"this may take some time if DLib is not built and installed...")
             _a = list(_args)
             _a.append("face-recognition")
             _popen(_a)
 
         if args.deepface:
-            logger.info(f"\n\n{self.lp} Attempting to install deepface facial data framework, this may take some time...")
+            logger.info(f"\n\n{self.lp} Attempting to install deepface facial data framework, "
+                        f"this may take some time...")
             _a = list(_args)
             _a.append("deepface")
+            # tensorflow 2.16+ requires tf_keras, so we install it regardless
+            _a.append("tf_keras")
+            # ANN library
             _a.append("annoy>=1.17.3")
             _popen(_a)
+            # deepface installs opencv-python package, we remove it regardless.
+            _popen([
+                context.env_exec_cmd,
+                "-m",
+                "pip",
+                "uninstall",
+                "-yq",
+                "opencv-python",
+            ])
+            if opencv:
+                # the opencv install is borked (only contrib libs left), start fresh
+                _popen([
+                    context.env_exec_cmd,
+                    "-m",
+                    "pip",
+                    "uninstall",
+                    "-yq",
+                    "opencv-contrib-python-headless"
+                ])
+                _a = list(_args)
+                _a.extend([
+                    "-yq",
+                    "opencv-contrib-python-headless"
+                ])
 
 
 def check_python_version(maj: int, min: int):
