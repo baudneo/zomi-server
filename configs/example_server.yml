@@ -440,3 +440,22 @@ models:
       #config:
         #region: 'strict'
         #mode:  'fast'
+
+  - name: deepface example
+    enabled: no
+    description: "DeepFace facial recognition model"
+    type_of: face
+    framework: deepface
+    processor: gpu  # cpu/gpu - tensorflow prioritizes gpu unless you specify cpu
+    gpu_idx: 0
+    # face detection options
+    detection_options:
+      # 'opencv', 'ssd', 'dlib', 'mtcnn', 'fastmtcnn', 'retinaface',
+      # 'mediapipe', 'yolov8', 'yunet', 'centerface'
+      backend: 'mtcnn'
+
+    recognition_options:
+      # - MANUAL distance threshold for face recognition
+#      distance_threshold: 0.6
+      # each model has recommended distance thresholds, use them.
+      auto_distance: yes
