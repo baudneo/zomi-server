@@ -40,7 +40,7 @@ DEFAULT_MODELS = [
     "yolo_nas_s",
 ]
 REPO_BASE = Path(__file__).parent.parent
-INSTALL_FILE_DIR = Path(__file__).parent
+EXAMPLES_DIR = Path(__file__).parent
 _ENV: Dict[str, str] = {}
 THREADS: Dict[str, Thread] = {}
 
@@ -955,8 +955,22 @@ def do_install():
 
     logger.info(f"Installing '{_inst_type}' specific files...")
     copy_file(
-        INSTALL_FILE_DIR / "mlapi.py",
+        EXAMPLES_DIR / "mlapi.py",
         data_dir / "bin/mlapi.py",
+        ml_user,
+        ml_group,
+        0o755,
+    )
+    copy_file(
+        EXAMPLES_DIR / "deepface-train.py",
+        data_dir / "bin/deepface-train.py",
+        ml_user,
+        ml_group,
+        0o755,
+    )
+    copy_file(
+        EXAMPLES_DIR / "face-rec_train.py",
+        data_dir / "bin/face-rec_train.py",
         ml_user,
         ml_group,
         0o755,
@@ -973,6 +987,28 @@ def do_install():
             )
             _dest.unlink()
         _dest.symlink_to(f"{data_dir}/bin/mlapi.py")
+
+    if args.deepface:
+        test_msg(f"Creating symlinks for ZoMi Deepface Train: '/usr/local/bin/zomi-deepface-train' will symlink to '{data_dir}/bin/deepface-train.py'")
+        if not testing:
+            _dest = Path("/usr/local/bin/zomi-deepface-train")
+            if _dest.exists():
+                logger.warning(
+                    f"{_dest.name} symlink already exists at {_dest}, unlinking and relinking..."
+                )
+                _dest.unlink()
+            _dest.symlink_to(f"{data_dir}/bin/deepface-train.py")
+
+    if args.face_rec:
+        test_msg(f"Creating symlinks for ZoMi Face Recognition Train: '/usr/local/bin/zomi-facerec-train' will symlink to '{data_dir}/bin/face-rec_train.py'")
+        if not testing:
+            _dest = Path("/usr/local/bin/zomi-facerec-train")
+            if _dest.exists():
+                logger.warning(
+                    f"{_dest.name} symlink already exists at {_dest}, unlinking and relinking..."
+                )
+                _dest.unlink()
+            _dest.symlink_to(f"{data_dir}/bin/face-rec_train.py")
 
     _src: str = f"{REPO_BASE.expanduser().resolve().as_posix()}"
 
