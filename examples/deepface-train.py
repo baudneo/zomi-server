@@ -267,6 +267,12 @@ if __name__ == "__main__":
 
     logger.debug(f"New facial embeddings: {all_vectors}")
     # Save the facial embeddings to a file
-    # with open(output_file, "wb") as f:
-    #     pickle.dump(all_vectors, f)
-    # logger.info(f"Facial embeddings saved to {output_file}")
+    try:
+        with open(output_file, "wb") as f:
+            pickle.dump(all_vectors, f)
+    except Exception as e:
+        logger.exception(
+            f"Error saving facial embeddings to file: {output_file} -> {e}"
+        )
+    else:
+        logger.info(f"Facial embeddings saved to {output_file}")
