@@ -518,6 +518,83 @@ class FaceRecognitionLibModelTrainingOptions(BaseModelOptions):
     )
 
 
+# detection options
+class DeepFaceModelOptions(BaseModelOptions):
+    class DFBackend(str, enum.Enum):
+        OpenCV = "opencv"
+        SSD = "ssd"
+        DLib = "dlib"
+        Mtcnn = "mtcnn"
+        FastMtcnn = "fastmtcnn"
+        RetinaFace = "retinaface"
+        MediaPipe = "mediapipe"
+        YOLOv8 = "yolov8"
+        Yunet = "yunet"
+        CenterFace = "centerface"
+
+    class DFActions(str, enum.Enum):
+        Emotion = "emotion"
+        Age = "age"
+        Gender = "gender"
+        Race = "race"
+
+    backend: DFBackend = Field(
+        DFBackend.OpenCV,
+        description="Face detection backend to use (opencv/ssd are fast / retinaface/mtcnn are accurate)",
+    )
+    anti_spoofing: Optional[bool] = Field(
+        False,
+        description="Enable Anti-Spoofing for detected faces",
+    )
+    actions: Optional[List[Optional[DFActions]]] = Field(
+        default_factory=list,
+        description="List of actions to perform on detected faces",
+    )
+    align: bool = Field(True, description="Align faces after detection")
+    greyscale: bool = Field(False, description="Convert image to greyscale before detection",
+                            validation_alias="grayscale", alias="grayscale")
+
+
+class DeepFaceRecognitionOptions(BaseModelOptions):
+    class DistanceMetric(str, enum.Enum):
+        COSINE = "cosine"
+        EUCLIDEAN = "euclidean"
+        EUCLIDEAN_L2 = "euclidean_l2"
+
+    class RecognitionModel(str, enum.Enum):
+        VGG_Face = "vgg-face"
+        FaceNet = "facenet"
+        FaceNet512 = "facenet512"
+        OpenFace = "openface"
+        DeepFace = "deepface"
+        DeepID = "deepid"
+        ArcFace = "arcface"
+        DLib = "dlib"
+        SFace = "sface"
+        GhostFaceNet = "ghostfacenet"
+
+    distance_threshold: Optional[float] = Field(
+        None,
+        gt=0.0,
+        le=1.0,
+        description="Manually specify the distance threshold for face recognition",
+    )
+    distance_metric: Optional[DistanceMetric] = Field(
+        DistanceMetric.COSINE,
+        description="Distance metric to use for face recognition",
+    )
+    auto_threshold: bool = Field(
+        False,
+        description="Use a fine-tuned distance threshold based on the model",
+    )
+
+    input: Optional[RecognitionModel] = Field(
+        RecognitionModel.VGG_Face,
+        description="DeepFace model to use for face recognition",
+        alias="model"
+    )
+
+
 class ALPRModelOptions(BaseModelOptions):
     max_size: Optional[int] = Field(
         None,
@@ -644,6 +721,8 @@ class BaseModelConfig(BaseModel):
         TorchModelOptions,
         TRTModelOptions,
         ORTModelOptions,
+        DeepFaceModelOptions,
+        DeepFaceRecognitionOptions,
         None,
     ] = Field(
         default_factory=BaseModelOptions,
@@ -886,7 +965,21 @@ class RekognitionModelConfig(BaseModelConfig):
 
 
 class DeepFaceModelConfig(BaseModelConfig):
-    pass
+    gpu_idx: Optional[int] = Field(
+        0,
+        ge=0,
+        description="GPU Index to use",
+    )
+    cpu_idx: Optional[int] = Field(
+        0,
+        ge=0,
+        description="CPU Index to use",
+    )
+
+    recognition_options: DeepFaceRecognitionOptions = Field(
+        default_factory=DeepFaceRecognitionOptions,
+        description="Face Recognition Options",
+    )
 
 
 class TorchModelConfig(BaseModelConfig):
