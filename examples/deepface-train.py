@@ -217,7 +217,7 @@ if __name__ == "__main__":
                             img, model_name=model, detector_backend=detect_backend
                         )
                     except Exception as e:
-                        logger.error(
+                        logger.exception(
                             f"Error extracting facial embeddings for person: {person.name} "
                             f"using model: {model} in image: {image.name} -> {e}"
                         )
