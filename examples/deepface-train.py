@@ -1,6 +1,9 @@
+#! /usr/bin/env python3
 """
 A script to extract facial embeddings from images to store on disk for facial recognition
-via the deepface python library. This will train each image on each recognition backend
+via the deepface python library. This will train each person(s) image(s) on each recognition model and
+store the embeddings. If there is more than one image for a person, the embeddings will be
+averaged to create a single embedding for that person.
 
 It is required to have a directory structure like:
 facial_data (root directory)
@@ -15,21 +18,21 @@ A dictionary is used to store the embeddings of each person and each supported m
 all_vectors = {
     "Alice": {
         "VGG-Face": {
-            "all": np.array[vector1],
-            "average": np.array[vector]
+            "all": [vector1],
+            "average": [vector]
         },
         "Facenet": {
-            "all": np.array[vector1],
-            "average": np.array[vector]
+            "all": [vector1],
+            "average": [vector]
     },
     "Bob": {
         "VGG-Face": {
-            "all": np.array[vector1, vector2],
-            "average": np.array[vector],
+            "all": [vector1, vector2],
+            "average": [vector],
         },
         "Facenet": {
-            "all": np.array[vector1, vector2],
-            "average": np.array[vector],
+            "all": [vector1, vector2],
+            "average": [vector],
         },
     },
     ...
@@ -41,20 +44,29 @@ image is provided for a person, we will average the embeddings to create a singl
 """
 
 import argparse
+import math
 import os
 import pickle
 import sys
 from datetime import datetime
 import logging
 from pathlib import Path
-from typing import Optional, List
+from typing import Optional, List, Dict
 
 import cv2
 import numpy as np
 from deepface import DeepFace
-from deepface.commons.folder_utils import get_deepface_home
+from deepface.commons.folder_utils import get_deepface_home, initialize_folder
 from deepface.models.FacialRecognition import FacialRecognition
 
+log_formatter = logging.Formatter(
+    "%(asctime)s.%(msecs)d %(name)s[%(process)s] %(levelname)s line:%(lineno)d -> %(message)s",
+    "%m/%d/%y %H:%M:%S",
+)
+logger = logging.getLogger("df-train")
+console = logging.StreamHandler(stream=sys.stdout)
+console.setFormatter(log_formatter)
+logger.addHandler(console)
 MODELS = [
     "VGG-Face",
     "Facenet",
@@ -63,27 +75,39 @@ MODELS = [
     "DeepFace",
     "DeepID",
     "ArcFace",
-    "DLib",
+    "Dlib",
     "SFace",
     "GhostFaceNet",
+]
+DETECTORS = [
+    "opencv",
+    "ssd",
+    "dlib",
+    "mtcnn",
+    "fastmtcnn",
+    "retinaface",
+    "mediapipe",
+    "yolov8",
+    "yunet",
+    "centerface",
 ]
 
 
 def parse_cli():
     parser = argparse.ArgumentParser(
-        description="Use deepface to extract facial embeddings from images for face recognition"
+        description="Use deepface to extract facial embeddings from images for face recognition. "
+                    "This will iterate through all persons, images and deepface models."
     )
     parser.add_argument(
-        "image-dir",
+        "image_dir",
         help="Directory containing the facial data",
-        dest="image_dir",
         type=str,
     )
     parser.add_argument(
         "--model-dir",
         "-M",
         help="Directory to store deepface models "
-        "(required: same place as zomi-server)",
+        "(same place as zomi-server models!)",
         required=True,
         dest="model_dir",
         type=str,
@@ -93,18 +117,7 @@ def parse_cli():
         "-B",
         help="Face detector backend (opencv / ssd are fast, mtcnn / retinaface are accurate)",
         default="opencv",
-        choices=[
-            "opencv",
-            "ssd",
-            "dlib",
-            "mtcnn",
-            "fastmtcnn",
-            "retinaface",
-            "mediapipe",
-            "yolov8",
-            "yunet",
-            "centerface",
-        ],
+        choices=DETECTORS,
     )
     parser.add_argument(
         "--override",
@@ -118,6 +131,15 @@ def parse_cli():
         "-D",
         help="Enable debug logging",
         action="store_true",
+    )
+    parser.add_argument(
+        "--models",
+        "-m",
+        help="Deepface models to use",
+        nargs="+",
+        default=MODELS,
+        choices=MODELS,
+
     )
 
     return vars(parser.parse_args())
@@ -143,43 +165,49 @@ def checks():
     elif not image_dir.is_dir():
         logger.error(f"Image directory is not a directory: {image_dir}")
         sys.exit(1)
-    if not model_dir.exists():
-        logger.error(f"Model directory does not exist: {model_dir}")
-        sys.exit(1)
-    elif not model_dir.is_dir():
-        logger.error(f"Model directory is not a directory: {model_dir}")
-        sys.exit(1)
+    logger.debug(f"Image directory: {image_dir}")
 
 
 if __name__ == "__main__":
-    logging.basicConfig(level=logging.INFO, stream=sys.stdout)
-    logger = logging.getLogger(__name__)
     args: dict = parse_cli()
-    if args["debug"]:
-        logger.setLevel(logging.DEBUG)
-        for handler in logger.handlers:
+    for handler in logger.handlers:
+        if args["debug"]:
+            logger.setLevel(logging.DEBUG)
             handler.setLevel(logging.DEBUG)
+        handler.setFormatter(log_formatter)
     logger.debug(f"CLI args: {args}")
     image_dir: Path = Path(args["image_dir"])
     model_dir: Path = Path(args["model_dir"])
+    checks()
     detect_backend: str = args["detector_backend"]
     override: bool = args["override"]
-    checks()
+    recog_models = args["models"]
+    if not recog_models:
+        logger.warning(f"No models specified, using all available models: {', '.join(MODELS).rstrip(',')}")
+        recog_models = MODELS
+    else:
+        logger.info(f"Using configured models: {', '.join(recog_models).rstrip(',')}")
+    if not detect_backend:
+        logger.warning(f"No detector backend specified, using opencv")
+        detect_backend = "opencv"
+    else:
+        logger.info(f"Using configured detector backend: {detect_backend}")
     output_file: Path = Path(
-        f"./deepface_embeddings-{datetime.now().strftime("%Y%m%d%H%M%S")}.pkl"
+        f"./deepface_embeddings-{datetime.now().strftime('%Y%m%d%H%M%S')}.pkl"
     )
     logger.debug(f"Output file name calculated as: {output_file}")
     df_home_b4: str = get_deepface_home()
     os.environ["DEEPFACE_HOME"] = model_dir.expanduser().resolve().as_posix()
     logger.info(
         f"Overriding deepface model storage root directory > {df_home_b4} -> "
-        f"{get_deepface_home()}"
+        f"{get_deepface_home()} (root should be same as zomi-server models!)"
     )
+    initialize_folder()
+
     existing_vectors: Optional[dict] = check_dir_for_embeddings(
         Path("./").expanduser().resolve()
     )
     all_vectors: dict = {}
-    # Loop through the data directory
     for person in image_dir.iterdir():
         if person.is_dir():
             all_vectors[person.name] = {}
@@ -208,7 +236,13 @@ if __name__ == "__main__":
                         f"No existing embeddings found, creating new person: {person.name}"
                     )
                 vectors = []
-                model_repr: FacialRecognition = DeepFace.build_model(model)
+                try:
+                    model_repr: FacialRecognition = DeepFace.build_model(model)
+                except Exception as e:
+                    logger.error(
+                        f"Error building model: {model} for person: {person.name} -> {e}"
+                    )
+                    continue
                 model_shape = model_repr.output_shape
                 for image in person.iterdir():
                     img = cv2.imread(image.expanduser().resolve().as_posix())
@@ -265,7 +299,6 @@ if __name__ == "__main__":
                     ),
                 }
 
-    logger.debug(f"New facial embeddings: {all_vectors}")
     # Save the facial embeddings to a file
     try:
         with open(output_file, "wb") as f:
@@ -276,3 +309,5 @@ if __name__ == "__main__":
         )
     else:
         logger.info(f"Facial embeddings saved to {output_file}")
+
+    logger.info("End of deepface training script")
