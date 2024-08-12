@@ -1,5 +1,18 @@
 # How does this work?
 
+## The link between zomi-server and zomi-client
+>[!IMPORTANT]
+> The server defines models in its configuration file [`models:`](Config/models.md) section. The `name:` of the model is how it will 
+> be called in inference requests. The client will use the [`name:`](Config/models.md#name) to send requests to the server.
+
+The `name:` of each of the `models:` defined is the link between zomi-server and zomi-client.
+
+### Example
+- A client sends an inference request to the server with at least 1 image and 1 model name; `yolo v10`.
+- The server will look in its internal state to see if there is a model named `yolo v10`.
+- If the model is found, enabled and no issues loading into memory, the server will run the image through the model and return the results.
+    - if the model is not found/enabled/loaded, the server will return an error message. *WIP* 
+
 ## Configuration (server.yml)
 The server is configured using a YAML file. Any changes require a server restart to take effect. 
 The server will not start if the config file is missing or malformed.
@@ -43,7 +56,7 @@ if it is not defined in the config file [`substitutions:IncludeFile:`](../config
         "model_hints": "model name/UUID #1, model name/UUID #2"
     }
     ```
-- the server will decode the images and run them through the models
+- the server will decode the images and run them through the models, if the models exist and are enabled
 - *[Optional]* - the server will run color detection on the cropped bounding boxes
 - the server will return the results in JSON (See [Swagger UI](../README.md#swagger-ui) to view the JSON response schema)
 
@@ -55,7 +68,7 @@ if it is not defined in the config file [`substitutions:IncludeFile:`](../config
         "model_hints": "model name/UUID #1, model name/UUID #2"
     }
     ```
-- the server will decode the images and run them through the models
+- the server will decode the images and run them through the models, if the models exist and are enabled
 - the server will return the annotated images and the results in JSON (See [Swagger UI](../README.md#swagger-ui) to view the JSON response schema)
 
 ### Available Models

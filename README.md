@@ -37,6 +37,19 @@ See the [docs/hardware](docs/hardware) directory for more information on hardwar
 # Install
 Please see the [installation docs](docs/install.md) for more information.
 
+## The link between zomi-server and zomi-client
+>[!IMPORTANT]
+> The server defines models in its configuration file [`models:`](docs/Config/models.md) section. The `name:` of the model is how it will 
+> be called in inference requests. The client will use the [`name:`](docs/Config/models.md#name) to send requests to the server.
+
+The `name:` of each of the `models:` defined is the link between zomi-server and zomi-client.
+
+### Example
+- A client sends an inference request to the server with at least 1 image and 1 model name; `yolo v10`.
+- The server will look in its internal state to see if there is a model named `yolo v10`.
+- If the model is found, enabled and no issues loading into memory, the server will run the image through the model and return the results.
+    - if the model is not found/enabled/loaded, the server will return an error message. *WIP*
+
 # Swagger UI
 >[!TIP]
 > Swagger UI is available at the server root: `http://<server>:<port>/`
