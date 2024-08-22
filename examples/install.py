@@ -40,7 +40,7 @@ DEFAULT_MODELS = [
     "yolo_nas_s",
 ]
 REPO_BASE = Path(__file__).parent.parent
-INSTALL_FILE_DIR = Path(__file__).parent
+EXAMPLES_DIR = Path(__file__).parent
 _ENV: Dict[str, str] = {}
 THREADS: Dict[str, Thread] = {}
 
@@ -390,12 +390,12 @@ def parse_cli():
         "--cpu",
         action="store_true",
         dest="cpu",
-        help="Install CPU only packages for pytorch",
+        help="Install CPU only packages for pytorch / onnx-runtime",
     )
     processor_group.add_argument(
         "--gpu",
         dest="gpu",
-        help="Install GPU only packages for pytorch (only choose one)",
+        help="Install GPU only packages for pytorch / onnx-runtime",
         choices=("cuda12.1", "cuda11.8", "rocm6.0"),
         default=None,
         nargs=1,
@@ -412,8 +412,15 @@ def parse_cli():
         "--ageitgey",
         action="store_true",
         dest="face_rec",
-        help="Install ageitgey face recognition framework",
+        help="Install ageitgey (Dlib based) face detection/recognition framework (legacy)",
     )
+    parser.add_argument(
+        "--deepface",
+        action="store_true",
+        dest="deepface",
+        help="Install deepface python facial data framework (tensorflow/keras)",
+    )
+
 
     parser.add_argument(
         "--no-cache-dir",
@@ -826,12 +833,25 @@ def download_file(url: str, dest: Path, user: str, group: str, mode: int):
 def copy_file(src: Path, dest: Path, user: str, group: str, mode: int):
     msg = f"Copying {src} to {dest}..."
     if not testing:
-        # Check if the file exists, if so, show a log warning and remove, then copy
+        # Oh hell no, we are not removing anything. Log the warning and exit
 
         if dest.exists():
-            logger.warning(f"File {dest} already exists, removing...")
-            dest.unlink()
+            exc_msg = f"File {dest} already exists, this is a fatal error. Please remove the existing file and try again."
+            logger.fatal(exc_msg)
+            raise FileExistsError(exc_msg)
 
+        # check if the destination directory exists
+        if not dest.parent.exists():
+            logger.warning(f"Destination directory {dest.parent} does not exist!")
+            if interactive:
+                x = input(f"Create directory {dest.parent}? [Y/n]... 'n' will exit! ")
+                if x.strip().casefold() == "n":
+                    logger.error(f"Destination directory does not exist, exiting...")
+                    sys.exit(1)
+                create_dir(dest.parent, ml_user, ml_group, mode)
+            else:
+                test_msg(f"Creating destination directory: {dest.parent}")
+                create_dir(dest.parent, ml_user, ml_group, mode)
         logger.info(msg)
         shutil.copy(src, dest)
         chown_mod(dest, user, group, mode)
@@ -948,8 +968,22 @@ def do_install():
 
     logger.info(f"Installing '{_inst_type}' specific files...")
     copy_file(
-        INSTALL_FILE_DIR / "mlapi.py",
+        EXAMPLES_DIR / "mlapi.py",
         data_dir / "bin/mlapi.py",
+        ml_user,
+        ml_group,
+        0o755,
+    )
+    copy_file(
+        EXAMPLES_DIR / "deepface-train.py",
+        data_dir / "bin/deepface-train.py",
+        ml_user,
+        ml_group,
+        0o755,
+    )
+    copy_file(
+        EXAMPLES_DIR / "face-rec_train.py",
+        data_dir / "bin/face-rec_train.py",
         ml_user,
         ml_group,
         0o755,
@@ -966,6 +1000,28 @@ def do_install():
             )
             _dest.unlink()
         _dest.symlink_to(f"{data_dir}/bin/mlapi.py")
+
+    if args.deepface:
+        test_msg(f"Creating symlinks for ZoMi Deepface Train: '/usr/local/bin/zomi-deepface-train' will symlink to '{data_dir}/bin/deepface-train.py'")
+        if not testing:
+            _dest = Path("/usr/local/bin/zomi-deepface-train")
+            if _dest.exists():
+                logger.warning(
+                    f"{_dest.name} symlink already exists at {_dest}, unlinking and relinking..."
+                )
+                _dest.unlink()
+            _dest.symlink_to(f"{data_dir}/bin/deepface-train.py")
+
+    if args.face_rec:
+        test_msg(f"Creating symlinks for ZoMi Face Recognition Train: '/usr/local/bin/zomi-facerec-train' will symlink to '{data_dir}/bin/face-rec_train.py'")
+        if not testing:
+            _dest = Path("/usr/local/bin/zomi-facerec-train")
+            if _dest.exists():
+                logger.warning(
+                    f"{_dest.name} symlink already exists at {_dest}, unlinking and relinking..."
+                )
+                _dest.unlink()
+            _dest.symlink_to(f"{data_dir}/bin/face-rec_train.py")
 
     _src: str = f"{REPO_BASE.expanduser().resolve().as_posix()}"
 
@@ -1243,16 +1299,52 @@ class ZoMiEnvBuilder(venv.EnvBuilder):
 
         if opencv:
             _a = list(_args)
-            logger.info(f"\n\n{self.lp} Installing opencv-contrib [CPU only cv2]...")
+            logger.info(f"\n\n{self.lp} Installing opencv-contrib-python-headless [CPU only / No GUI libs]...")
             _a.append("opencv-contrib-python-headless")
             _popen(_a)
 
         # Install ageitgey/face_recognition
         if args.face_rec:
-            logger.info(f"\n\n{self.lp} Attempting to install face-recognition, this may take some time...")
+            logger.info(f"\n\n{self.lp} Attempting to install ageitgey/face-recognition, "
+                        f"this may take some time if DLib is not built and installed...")
             _a = list(_args)
             _a.append("face-recognition")
             _popen(_a)
+
+        if args.deepface:
+            logger.info(f"\n\n{self.lp} Attempting to install deepface facial data framework, "
+                        f"this may take some time...")
+            _a = list(_args)
+            _a.append("deepface")
+            # tensorflow 2.16+ requires tf_keras, so we install it regardless
+            _a.append("tf_keras")
+            # ANN library
+            _a.append("annoy>=1.17.3")
+            _popen(_a)
+            # deepface installs opencv-python package, we remove it regardless.
+            _popen([
+                context.env_exec_cmd,
+                "-m",
+                "pip",
+                "uninstall",
+                "-yq",
+                "opencv-python",
+            ])
+            if opencv:
+                # the opencv install is borked (only contrib libs left), start fresh
+                _popen([
+                    context.env_exec_cmd,
+                    "-m",
+                    "pip",
+                    "uninstall",
+                    "-yq",
+                    "opencv-contrib-python-headless"
+                ])
+                _a = list(_args)
+                _a.extend([
+                    "-yq",
+                    "opencv-contrib-python-headless"
+                ])
 
 
 def check_python_version(maj: int, min: int):
