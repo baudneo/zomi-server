@@ -1294,8 +1294,8 @@ def check_python_version(maj: int, min_: int):
         logger.error(f"Python {maj}+ is required to run this install script!")
         sys.exit(1)
     elif sys.version_info.major == maj:
-        if sys.version_info.minor < min:
-            logger.error(f"Python {maj}.{min}+ is required!")
+        if sys.version_info.minor < min_:
+            logger.error(f"Python {maj}.{min_}+ is required!")
             sys.exit(1)
 
 
