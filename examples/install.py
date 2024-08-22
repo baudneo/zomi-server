@@ -972,26 +972,33 @@ def do_install():
         f"Creating symlinks for ZoMi Server: '/usr/local/bin/mlapi' will symlink to '{data_dir}/bin/mlapi.py'",
     )
 
+    _dest = Path("/usr/local/bin/mlapi")
     if not testing:
-        _dest = Path("/usr/local/bin/mlapi")
         if _dest.exists():
-            logger.warning(
-                f"mlapi symlink already exists at {_dest}, unlinking and relinking..."
-            )
-            _dest.unlink()
-        _dest.symlink_to(f"{data_dir}/bin/mlapi.py")
-
-
-    if args.face_rec:
-        test_msg(f"Creating symlinks for ZoMi Face Recognition Train: '/usr/local/bin/zomi-facerec-train' will symlink to '{data_dir}/bin/face-rec_train.py'")
-        if not testing:
-            _dest = Path("/usr/local/bin/zomi-facerec-train")
-            if _dest.exists():
-                logger.warning(
-                    f"{_dest.name} symlink already exists at {_dest}, unlinking and relinking..."
+            if interactive:
+                x = input(
+                    f"The symlink {_dest} already exists, would you like to remove it and create a new one? [Y/n] "
                 )
+                if x.casefold() == "n":
+                    logger.error(
+                        f"The symlink {_dest} already exists, Please remove it and try again."
+                    )
+                    sys.exit(1)
                 _dest.unlink()
-            _dest.symlink_to(f"{data_dir}/bin/face-rec_train.py")
+            else:
+                raise FileExistsError(
+                    f"{_dest.name} symlink already exists at {_dest.as_posix()}, please remove and try again."
+                )
+        else:
+            _dest.symlink_to(f"{data_dir}/bin/mlapi.py")
+    else:
+        if _dest.exists():
+            logger.error(f"The symlink {_dest.as_posix()} already exists, Please remove it before actually installing.")
+
+        else:
+            test_msg(
+                f"Would have created symlink: '{_dest.as_posix()}' -> '{data_dir}/bin/mlapi.py'"
+            )
 
     _src: str = f"{REPO_BASE.expanduser().resolve().as_posix()}"
 
@@ -1282,7 +1289,6 @@ class ZoMiEnvBuilder(venv.EnvBuilder):
             _popen(_a)
 
 
-
 def check_python_version(maj: int, min_: int):
     if sys.version_info.major < maj:
         logger.error(f"Python {maj}+ is required to run this install script!")
@@ -1306,7 +1312,7 @@ if __name__ == "__main__":
         logger.critical(msg)
         sys.exit(1)
     else:
-        logger.info("All python dependencies that this install script requires found.")
+        logger.info("All python dependencies that this install script requires have been found.")
 
     class TqdmLoggingHandler(logging.Handler):
         def __init__(self, level=logging.NOTSET):
@@ -1348,6 +1354,8 @@ if __name__ == "__main__":
         logger.debug("Debug logging enabled!")
     if testing:
         logger.warning(">>>>>>>>>>>>> Running in test/dry-run mode! <<<<<<<<<<<<<<<<")
+        # make sure it is noticed
+        time.sleep(2.5)
     models = args.models
     no_models: bool = args.no_models
     force_models: bool = args.force_models
