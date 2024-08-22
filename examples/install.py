@@ -414,13 +414,6 @@ def parse_cli():
         dest="face_rec",
         help="Install ageitgey (Dlib based) face detection/recognition framework (legacy)",
     )
-    parser.add_argument(
-        "--deepface",
-        action="store_true",
-        dest="deepface",
-        help="Install deepface python facial data framework (tensorflow/keras)",
-    )
-
 
     parser.add_argument(
         "--no-cache-dir",
@@ -974,20 +967,7 @@ def do_install():
         ml_group,
         0o755,
     )
-    copy_file(
-        EXAMPLES_DIR / "deepface-train.py",
-        data_dir / "bin/deepface-train.py",
-        ml_user,
-        ml_group,
-        0o755,
-    )
-    copy_file(
-        EXAMPLES_DIR / "face-rec_train.py",
-        data_dir / "bin/face-rec_train.py",
-        ml_user,
-        ml_group,
-        0o755,
-    )
+
     test_msg(
         f"Creating symlinks for ZoMi Server: '/usr/local/bin/mlapi' will symlink to '{data_dir}/bin/mlapi.py'",
     )
@@ -1001,16 +981,6 @@ def do_install():
             _dest.unlink()
         _dest.symlink_to(f"{data_dir}/bin/mlapi.py")
 
-    if args.deepface:
-        test_msg(f"Creating symlinks for ZoMi Deepface Train: '/usr/local/bin/zomi-deepface-train' will symlink to '{data_dir}/bin/deepface-train.py'")
-        if not testing:
-            _dest = Path("/usr/local/bin/zomi-deepface-train")
-            if _dest.exists():
-                logger.warning(
-                    f"{_dest.name} symlink already exists at {_dest}, unlinking and relinking..."
-                )
-                _dest.unlink()
-            _dest.symlink_to(f"{data_dir}/bin/deepface-train.py")
 
     if args.face_rec:
         test_msg(f"Creating symlinks for ZoMi Face Recognition Train: '/usr/local/bin/zomi-facerec-train' will symlink to '{data_dir}/bin/face-rec_train.py'")
@@ -1311,43 +1281,9 @@ class ZoMiEnvBuilder(venv.EnvBuilder):
             _a.append("face-recognition")
             _popen(_a)
 
-        if args.deepface:
-            logger.info(f"\n\n{self.lp} Attempting to install deepface facial data framework, "
-                        f"this may take some time...")
-            _a = list(_args)
-            _a.append("deepface")
-            # tensorflow 2.16+ requires tf_keras, so we install it regardless
-            _a.append("tf_keras")
-            # ANN library
-            _a.append("annoy>=1.17.3")
-            _popen(_a)
-            # deepface installs opencv-python package, we remove it regardless.
-            _popen([
-                context.env_exec_cmd,
-                "-m",
-                "pip",
-                "uninstall",
-                "-yq",
-                "opencv-python",
-            ])
-            if opencv:
-                # the opencv install is borked (only contrib libs left), start fresh
-                _popen([
-                    context.env_exec_cmd,
-                    "-m",
-                    "pip",
-                    "uninstall",
-                    "-yq",
-                    "opencv-contrib-python-headless"
-                ])
-                _a = list(_args)
-                _a.extend([
-                    "-yq",
-                    "opencv-contrib-python-headless"
-                ])
 
 
-def check_python_version(maj: int, min: int):
+def check_python_version(maj: int, min_: int):
     if sys.version_info.major < maj:
         logger.error(f"Python {maj}+ is required to run this install script!")
         sys.exit(1)
