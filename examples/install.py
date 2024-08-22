@@ -1367,9 +1367,11 @@ if __name__ == "__main__":
     if not route_port:
         route_port = "5000"
     if not route_sign_key:
-        logger.info("No JWT sign key configured! Generating random JWT signature key...")
+        import secrets
+
+        logger.info("No JWT sign key configured! Generating pseudo-random JWT signature key...")
         route_sign_key = "".join(
-            random.choice(string.ascii_letters + string.digits) for _ in range(128)
+            secrets.choice(string.ascii_letters + string.digits) for _ in range(128)
         )
     gpu_args: Optional[List[str]] = args.gpu
     opencv: bool = args.opencv
