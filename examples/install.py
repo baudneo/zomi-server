@@ -23,6 +23,8 @@ from typing import Optional, Tuple, Union, List, Dict, Pattern
 _simple_re: Pattern = re.compile(r"(?<!\\)\$([A-Za-z0-9_]+)")
 _extended_re: Pattern = re.compile(r"(?<!\\)\$\{([A-Za-z0-9_]+)((:?-)([^}]+))?}")
 
+VENV_NAME: str = "ZoMi_Server"
+
 # Change these if you want to install to a different location
 DEFAULT_BASE_DIR = "/opt/zomi/server"
 DEFAULT_DATA_DIR = f"{DEFAULT_BASE_DIR}/data"
@@ -400,7 +402,8 @@ def parse_cli():
         default=None,
         nargs=1,
     )
-
+    parser.add_argument("--venv-only", action="store_true", help="Install venv only", dest="venv_only")
+    parser.add_argument("-F", "--force", action="store_true", help="Force installation (overwrite existing files)", dest="force")
     parser.add_argument(
         "--opencv",
         action="store_true",
@@ -826,12 +829,25 @@ def download_file(url: str, dest: Path, user: str, group: str, mode: int):
 def copy_file(src: Path, dest: Path, user: str, group: str, mode: int):
     msg = f"Copying {src} to {dest}..."
     if not testing:
-        # Oh hell no, we are not removing anything. Log the warning and exit
-
         if dest.exists():
-            exc_msg = f"File {dest} already exists, this is a fatal error. Please remove the existing file and try again."
-            logger.fatal(exc_msg)
-            raise FileExistsError(exc_msg)
+            if interactive:
+                x = input(
+                    f"The file {dest} already exists, would you like to remove it and create a new one? [Y/n] "
+                )
+                if x.casefold() == "n":
+                    logger.error(
+                        f"Please remove {dest} and try again."
+                    )
+                    sys.exit(1)
+                dest.unlink()
+            else:
+                if not force:
+                    logger.critical(f"File {dest} already exists, this is a fatal error when --force/-F is not supplied. "
+                               f"Please remove the existing file and try again.")
+                    sys.exit(1)
+                else:
+                    logger.warning("Overwriting existing file...")
+                    dest.unlink()
 
         # check if the destination directory exists
         if not dest.parent.exists():
@@ -845,6 +861,9 @@ def copy_file(src: Path, dest: Path, user: str, group: str, mode: int):
             else:
                 test_msg(f"Creating destination directory: {dest.parent}")
                 create_dir(dest.parent, ml_user, ml_group, mode)
+        else:
+            chown(dest.parent, ml_user, ml_group)
+
         logger.info(msg)
         shutil.copy(src, dest)
         chown_mod(dest, user, group, mode)
@@ -944,21 +963,6 @@ def do_install():
     _inst_type = "server"
     check_backup(_inst_type)
 
-    _pip_prefix: List[str] = [
-        "-m",
-        "pip",
-        "install",
-    ]
-    if args.no_cache:
-        logger.info("Disabling pip cache...")
-        _pip_prefix.append("--no-cache-dir")
-    if args.pip_install_editable:
-        logger.info(
-            "Installing in pip --editable mode, DO NOT remove the source git"
-            " directory after install! git pull will update the installed package"
-        )
-        _pip_prefix.append("--editable")
-
     logger.info(f"Installing '{_inst_type}' specific files...")
     copy_file(
         EXAMPLES_DIR / "mlapi.py",
@@ -967,7 +971,6 @@ def do_install():
         ml_group,
         0o755,
     )
-
     test_msg(
         f"Creating symlinks for ZoMi Server: '/usr/local/bin/mlapi' will symlink to '{data_dir}/bin/mlapi.py'",
     )
@@ -986,46 +989,112 @@ def do_install():
                     sys.exit(1)
                 _dest.unlink()
             else:
-                raise FileExistsError(
-                    f"{_dest.name} symlink already exists at {_dest.as_posix()}, please remove and try again."
-                )
+                if not force:
+                    raise FileExistsError(
+                        f"{_dest.name} symlink already exists at {_dest.as_posix()}, please remove and try again."
+                    )
+                else:
+                    _dest.unlink()
+                    _dest.symlink_to(f"{data_dir}/bin/mlapi.py")
         else:
             _dest.symlink_to(f"{data_dir}/bin/mlapi.py")
     else:
         if _dest.exists():
-            logger.error(f"The symlink {_dest.as_posix()} already exists, Please remove it before actually installing.")
+            if not force:
+                logger.error(f"The symlink {_dest.as_posix()} already exists, Please remove it before actually installing.")
+            else:
+                test_msg(
+                    f"Would have created symlink: '{_dest.as_posix()}' -> '{data_dir}/bin/mlapi.py'"
+                )
 
         else:
             test_msg(
                 f"Would have created symlink: '{_dest.as_posix()}' -> '{data_dir}/bin/mlapi.py'"
             )
 
-    _src: str = f"{REPO_BASE.expanduser().resolve().as_posix()}"
-
     create_("secrets", cfg_dir / "secrets.yml")
     create_(_inst_type, cfg_dir / f"{_inst_type}.yml")
-    if testing:
-        _pip_prefix.append("--dry-run")
 
-    # Append the final arg to the pip install command; source dir
-    _pip_prefix.append(_src)
+    if not create_venv(create_pip_cmd()):
+        raise RuntimeError("Failed to create virtual environment!")
 
-    # create venv, upgrade pip/setup-tools and install ZoMi Server into the venv
+
+def create_pip_cmd() -> List:
+    _src: str = (
+        f"{REPO_BASE.expanduser().resolve().as_posix()}"
+    )
+    _cmd_array: List[str] = [
+        "-m",
+        "pip",
+        "install",
+    ]
+    if args.no_cache:
+        logger.info("Disabling pip cache...")
+        _cmd_array.append("--no-cache-dir")
+
+    if testing and not editable:
+        _cmd_array.append("--dry-run")
+    elif testing and editable:
+        logger.warning(
+            "TESTING: skipping --editable flag, this will not work in test mode"
+        )
+    elif editable and not testing:
+        logger.info(
+            "Installing in pip --editable mode, DO NOT remove the source git"
+            " directory after install! git pull will update the installed package"
+        )
+        _cmd_array.append("--editable")
+
+    _cmd_array.append(_src)
+    return _cmd_array
+
+
+def create_venv(cmd_array: List[str]):
+    global venv_dir
+    if not venv_dir:
+        logger.error("VENV directory not set!")
+        return False
+    venv_dir = venv_dir.expanduser().resolve() if not venv_dir.is_absolute() else venv_dir
+
+    if venv_dir.exists():
+        if not force:
+            logger.error(f"VENV directory {venv_dir} already exists! Please remove it and try again!")
+            return False
+        else:
+            logger.warning(f"VENV directory {venv_dir} already exists, overwriting...")
+            shutil.rmtree(venv_dir)
+    elif not venv_dir.is_dir():
+        logger.error(f"VENV directory {venv_dir} is not a directory!")
+        return False
+
     _venv = ZoMiEnvBuilder(
-        with_pip=True, cmd=_pip_prefix, upgrade_deps=True, prompt="ZoMi_Server"
+        with_pip=True, cmd=cmd_array, upgrade_deps=True, prompt=VENV_NAME
     )
-    _venv.create(venv_dir)
+    test_msg(f"Creating \"{VENV_NAME}\" virtual environment in directory: {venv_dir}")
+    try:
+        _venv.create(venv_dir)
+    except FileNotFoundError as e:
+        if not testing:
+            logger.warning(f"Issue while creating VENV: {e}")
+        return False
+    except Exception as e:
+        logger.exception(f"Failed to create VENV!")
+        return False
 
-    content: Optional[str] = None
     _f: Path = data_dir / "bin/mlapi.py"
-
     test_msg(
-        f"Modifying '{_f.as_posix()}' to use VENV '#!{_venv.context.env_exec_cmd}' shebang"
+        f"Modifying {_f.as_posix()} to use VENV shebang: #!{_venv.context.env_exec_cmd}"
     )
-    content = _f.read_text()
-    with _f.open("w+") as f:
-        f.write(f"#!{_venv.context.env_exec_cmd}\n{content}")
-    del content
+    if not testing:
+        if not _f.is_absolute():
+            _f = _f.expanduser().resolve()
+        content: Optional[str] = _f.read_text() or None
+        try:
+            with _f.open("w+") as f:
+                f.write(f"#!{_venv.context.env_exec_cmd}\n{content}")
+        except Exception as e:
+            logger.exception(f"Failed to modify {_f}, MAKE SURE TO MODIFY IT YOURSELF WITH the above shebang!")
+    return True
 
 
 class Envsubst:
@@ -1289,6 +1358,8 @@ class ZoMiEnvBuilder(venv.EnvBuilder):
             _popen(_a)
 
 
+
+
 def check_python_version(maj: int, min_: int):
     if sys.version_info.major < maj:
         logger.error(f"Python {maj}+ is required to run this install script!")
@@ -1335,6 +1406,9 @@ if __name__ == "__main__":
     logger.addHandler(tqdm_handler)
     models: List[str] = []
     testing: bool = args.test
+    editable: bool = args.pip_install_editable
+    venv_only: bool = args.venv_only
+    force: bool = args.force
     debug: bool = args.debug
     if in_venv():
         logger.info(
@@ -1405,15 +1479,13 @@ if __name__ == "__main__":
 
     show_config(args)
 
-    if args.all_models:
-        models = [str(x) for x in available_models.keys()]
-        logger.info(f"ALL MODELS requested:: Using all available models: {models}")
-    if args.model_dir:
-        model_dir = Path(args.model_dir)
-        logger.info(f"Using model directory: {model_dir}")
-    else:
-        logger.info(f"No model directory specified, using default: {data_dir}/models")
-        model_dir = Path(f"{data_dir}/models")
+    if venv_only:
+        logger.info("--venv-only flag supplied, only creating virtual environment...")
+        if not create_venv(create_pip_cmd()):
+            logger.critical("Failed to create virtual environment!")
+            exit(1)
+        logger.info("Virtual environment created successfully!")
+        exit(0)
 
     _ENV = {
         "ML_INSTALL_DATA_DIR": data_dir.as_posix(),
@@ -1433,6 +1505,15 @@ if __name__ == "__main__":
         "ML_INSTALL_SERVER_SIGN_KEY": route_sign_key,
     }
 
+    if args.all_models:
+        models = [str(x) for x in available_models.keys()]
+        logger.info(f"ALL MODELS requested: Using all available models: {models}")
+    if args.model_dir:
+        model_dir = Path(args.model_dir)
+        logger.info(f"Using model directory: {model_dir}")
+    else:
+        logger.info(f"No model directory specified, using default: {data_dir}/models")
+        model_dir = Path(f"{data_dir}/models")
     if args.env_file:
         parse_env_file(args.env_file)
     if args.models_only:
