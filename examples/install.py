@@ -1063,9 +1063,6 @@ def create_venv(cmd_array: List[str]):
         else:
             logger.warning(f"VENV directory {venv_dir} already exists, overwriting...")
             shutil.rmtree(venv_dir)
-    elif not venv_dir.is_dir():
-        logger.error(f"VENV directory {venv_dir} is not a directory!")
-        return False
 
     _venv = ZoMiEnvBuilder(
         with_pip=True, cmd=cmd_array, upgrade_deps=True, prompt=VENV_NAME
