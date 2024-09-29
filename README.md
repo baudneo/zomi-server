@@ -1,3 +1,5 @@
+# Development has been moved to a private repo, this repo will be archived.
+
 # ZoneMinder Machine Learning API (zomi-server)
 >[!CAUTION]
 > :warning: This software is in **ALPHA** stage, expect issues and incomplete, unoptimized, janky code ;) :warning:
