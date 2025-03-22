@@ -274,7 +274,6 @@ async def detect(
         for model_hint in _model_hints
         if model_hint is not None
     ]
-    # logger.debug(f"threaded_detect: model_hints -> {_model_hints}")
     detectors: List[APIDetector] = []
     detections: List[Optional[List[DetectionResults]]] = []
 
@@ -292,12 +291,15 @@ async def detect(
         logger.info(f"Found models: {found_models}")
         # check if images contains bytes or UploadFile objects
         if not isinstance(images[0], bytes):
+            logger.debug(f"Images are not bytes, converting to numpy arrays")
             images = [
                 load_image_into_numpy_array(await image.read()) for image in images
             ]
         else:
+            logger.debug(f"Images are not bytes, converting to numpy arrays")
             images = [load_image_into_numpy_array(image) for image in images]
         for image in images:
+            logger.debug(f"Image size = {image.size}")
             img_dets = []
             for detector in detectors:
                 # logger.info(f"Starting detection for {detector}")
