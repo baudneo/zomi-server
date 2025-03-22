@@ -64,6 +64,7 @@ class OutputType(str, enum.Enum):
     yolov9 = "yolov9"
     yolonas = "yolonas"
     yolov10 = "yolov10"
+    yolov11 = "yolov11"
 
 
 class Testing(BaseModel):
@@ -135,13 +136,13 @@ class Result(BaseModel):
         )
 
     def __str__(self):
-        _c: Optional[str] = None
+        _c: Optional[str] = ""
         if self.color:
             _c = f" [Color: {self.color}]"
         return f"'{self.label}'{_c} ({self.confidence:.2f}) @ {self.bounding_box}"
 
     def __repr__(self):
-        _c: Optional[str] = None
+        _c: Optional[str] = ""
         if self.color:
             _c = f" [Color: {self.color}]"
         return (
