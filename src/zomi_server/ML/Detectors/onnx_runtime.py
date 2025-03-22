@@ -557,7 +557,7 @@ class ORTDetector(OCRBase):
         # Resize input image
         input_img = cv2.resize(input_img, (self.input_width, self.input_height))
 
-        # Scale input pixel values to 0 to 1
+        # Scale input pixel values to 0 to 1 (dont want uint8 input)
         input_img = input_img / 255.0
         input_img = input_img.transpose(2, 0, 1)
         input_tensor = input_img[np.newaxis, :, :, :].astype(np.float32)
@@ -594,14 +594,14 @@ class ORTDetector(OCRBase):
             num_outputs = len(output)
             if num_outputs == 1:
                 if isinstance(output[0], np.ndarray):
-                    # prettrained: (1, 84, 8400)
+                    # ultralytics yolo v8/11 pre-trained: (1, 84, 8400)
                     # dfo with 2 classes and 1 background: (1, 6, 8400)
                     if output[0].shape[0] == 1 and output[0].shape[2] == 8400:
-                        # v8
+                        # v8 / v11
                         # (1, 84, 8400) -> (8400, 84)
                         predictions = np.squeeze(output[0]).T
                         logger.debug(
-                            f"{LP} yolov8 output shape = (1, <X>, 8400) detected!"
+                            f"{LP} ultralytics YOLO 8/11 pre-trained output shape = (1, 84, 8400) detected!"
                         )
                         # Filter out object confidence scores below threshold
                         scores = np.max(predictions[:, 4:], axis=1)
