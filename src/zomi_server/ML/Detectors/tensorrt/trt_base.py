@@ -172,6 +172,7 @@ class Tensor:
 
 
 class TensorRtDetector:
+    scale: Optional[float] = None
     def __init__(self, model_config: TRTModelConfig) -> None:
         global g
         if g is None:
@@ -322,21 +323,52 @@ class TensorRtDetector:
             f"perf:{LP}{self.name}: engine warmed up in {time.time() - _start:.5f} seconds"
         )
 
+    def resize_and_pad(self, bgr_image: np.ndarray, model_wxh: tuple, pad_color=(0, 0, 0)) -> np.ndarray:
+        """
+        Resize and pad an image to fit within model_wxh while maintaining aspect ratio.
+
+        :param bgr_image: Input image as a BGR NumPy array (H, W, C).
+        :param model_wxh: Target (width, height) for the model.
+        :param pad_color: Padding color as (B, G, R), default is black.
+        :return: Resized and padded image.
+        """
+        model_w, model_h = model_wxh
+        h, w = bgr_image.shape[:2]
+        # check if we need to resize at all
+        if w == model_w and h == model_h:
+            logger.debug(f"{LP} image already at model size, no need to resize")
+            return bgr_image
+
+        # Determine the appropriate scaling factor (maintaining aspect ratio)
+        self.scale  = min(model_w / w, model_h / h)
+        new_w, new_h = int(w * self.scale), int(h * self.scale)
+
+
+        # Resize image while keeping aspect ratio
+        resized_image = cv2.resize(bgr_image, (new_w, new_h), interpolation=cv2.INTER_AREA)
+
+        ## create a black image and then overlay the resized image onto it, without centering
+        padded_image = np.full((model_h, model_w, 3), pad_color, dtype=np.uint8)
+        padded_image[:new_h, :new_w] = resized_image
+        logger.debug(f"{LP} resized and padded image, original shape: {bgr_image.shape}, new shape: {padded_image.shape} // scale: {self.scale}")
+        return padded_image
+
     async def detect(self, input_image: np.ndarray) -> DetectionResults:
         labels = np.array([], dtype=np.int32)
         confs = np.array([], dtype=np.float32)
         b_boxes = np.array([], dtype=np.float32)
         # bgr, ratio, dwdh = letterbox(input_image, self.inp_info[0].shape[-2:])
         # dw, dh = int(dwdh[0]), int(dwdh[1])
-        rgb = cv2.cvtColor(input_image, cv2.COLOR_BGR2RGB)
-        self.img_height, self.img_width = rgb.shape[:2]
+
+        self.img_height, self.img_width = input_image.shape[:2]
         # resize image to network size
-        rgb = cv2.resize(rgb, (self.input_width, self.input_height))
+        # rgb = cv2.resize(rgb, (self.input_width, self.input_height))
+        proc_inp_img = self.resize_and_pad(input_image, (self.input_width, self.input_height))
+        rgb = cv2.cvtColor(proc_inp_img, cv2.COLOR_BGR2RGB)
         tensor = blob(rgb)
         # dwdh = np.array(dwdh * 2, dtype=np.float32)
         tensor = np.ascontiguousarray(tensor)
         # inference
-        await asyncio.sleep(0)
         detection_timer = time.time()
         try:
             async with get_global_config().async_locks.get(self.processor):
@@ -494,8 +526,8 @@ class TensorRtDetector:
                 return_empty = True
 
             else:
-                # yolov8 pretrained: (1, 84, 8400)
-                # yolov10 pretrained: (1, 300, 6)
+                # yolov 8/11 pretrained: (1, 84, 8400)
+                # yolov 10 pretrained: (1, 300, 6)
                 # yolo-nas: depends on legacy or new flat/batched
                 # FLAT (n, 7) and BATCHED outputs
                 if output_type.value == "yolov8":
@@ -550,7 +582,22 @@ class TensorRtDetector:
         )
 
     def rescale_boxes(self, boxes):
+        """Rescale boxes to original image dimensions using the formula from resize_and_pad."""
+        if self.scale is None:
+            raise ValueError("Scale factor is not set. Ensure resize_and_pad() has been called.")
+
+        # Rescale boxes to the original image dimensions
+        boxes[:, [0, 2]] = boxes[:, [0, 2]] / self.scale  # x1, x2
+        boxes[:, [1, 3]] = boxes[:, [1, 3]] / self.scale  # y1, y2
+
+        return boxes
+
+
+    def old_rescale_boxes(self, boxes):
         """Rescale boxes to original image dimensions"""
+        # take into account the scaling formula used in the resize_and_pad method
+
+
         input_shape = np.array(
             [self.input_width, self.input_height, self.input_width, self.input_height]
         )
