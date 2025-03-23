@@ -33,7 +33,8 @@ __all__ = [
     "Token",
     "verify_password",
     "get_password_hash",
-    "verify_token",
+    "http_verify_jwt",
+    "ws_verify_jwt",
     "create_access_token",
 ]
 credentials_exception: HTTPException = HTTPException(
@@ -379,7 +380,7 @@ class UserDB:
         return f"UserDB({self.path}, active={self.init})"
 
 
-async def verify_token(
+async def http_verify_jwt(
     token: Annotated[str, Depends(OAUTH2_SCHEME)],
     request: Request,
 ) -> bool:
@@ -419,6 +420,41 @@ async def verify_token(
     else:
         logger.info(
             f"{lp} Token verified, checking DB for username: {username} using IP: {real_ip}"
+        )
+        user = g.user_db.get_user(username=username)
+        if user is None:
+            raise credentials_exception
+        else:
+            logger.debug(f"{lp} User {username} verified!")
+            ret_ = True
+    return ret_
+
+
+def ws_verify_jwt(token: str):
+    """Decode and verify JWT token."""
+    lp = "usr mngmt:token:verify:"
+    # logger.debug(f"{lp} Request headers: {request.headers}")
+    ret_: bool = False
+    try:
+        payload = jwt.decode(
+            token,
+            g.config.server.auth.sign_key.get_secret_value(),
+            algorithms=[g.config.server.auth.algorithm],
+        )
+        username: str = payload.get("sub")
+        roles: List[str] = payload.get("roles", [])
+
+        if username is None:
+            raise credentials_exception
+    except JWTError as e:
+        logger.warning(f"{lp} Token Failed verification! JWTError: {e}")
+        raise credentials_exception
+    except Exception as e:
+        logger.warning(f"{lp} Exception while decoding JWT: {e}")
+        raise HTTPException(status_code=500, detail="Error while verifying token")
+    else:
+        logger.info(
+            f"{lp} Token verified, checking DB for username: {username}"
         )
         user = g.user_db.get_user(username=username)
         if user is None:

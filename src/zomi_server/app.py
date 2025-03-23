@@ -12,13 +12,7 @@ from pathlib import Path
 from platform import python_version
 from typing import Union, List, Optional, Any, TYPE_CHECKING, Annotated, Tuple
 
-import uvloop
-from fastapi.exceptions import RequestValidationError
-from pydantic import Base64Bytes, Field, BaseModel, Base64Str
-from starlette import status
-from starlette.requests import Request
-from starlette.responses import JSONResponse
-
+import msgpack
 
 try:
     import cv2
@@ -29,13 +23,16 @@ except ImportError:
         "CUDA/cuDNN GPU support/OpenVINO Intel CPU/iGPU/dGPU support or "
         "quickly for only cpu support using 'opencv-contrib-python' package"
     )
-import numpy as np
 
+import numpy as np
 import pydantic
 import uvicorn
+import uvloop
 
 from fastapi import (
     FastAPI,
+    WebSocket,
+    WebSocketDisconnect,
     HTTPException,
     __version__ as fastapi_version,
     UploadFile,
@@ -46,6 +43,11 @@ from fastapi import (
 )
 from fastapi.responses import RedirectResponse, Response
 from fastapi.security import OAuth2PasswordRequestForm
+from fastapi.exceptions import RequestValidationError
+from starlette import status
+from starlette.requests import Request
+from starlette.responses import JSONResponse
+from pydantic import Base64Bytes, Field, BaseModel, Base64Str
 
 from .Models.Enums import ModelType, ModelFrameWork, ModelProcessor
 from .Log import SERVER_LOGGER_NAME, SERVER_LOG_FORMAT
@@ -86,13 +88,19 @@ app = FastAPI(
     debug=True,
     title="Machine Learning API",
     version=__version__,
-    description="A blazing fast API for running Machine Learning models on images",
+    description="An API for running Machine Learning models on base64 encoded images",
 )
 
 g: Optional[GlobalConfig] = None
 LP: str = "mlapi:"
 ANNOTATE_PATH: str = "/annotate"
 DETECT_PATH: str = "/detect"
+
+WS_PREFIX: str = "/ws"
+
+HTTP_API_VER = "/v1"
+WS_API_VER = "/v1"
+
 SLATE_COLORS: List[Tuple[int, int, int]] = [
     (39, 174, 96),
     (142, 68, 173),
@@ -101,7 +109,6 @@ SLATE_COLORS: List[Tuple[int, int, int]] = [
     (243, 134, 48),
     (91, 177, 47),
 ]
-
 
 def create_logs() -> logging.Logger:
     formatter = SERVER_LOG_FORMAT
@@ -290,6 +297,7 @@ async def detect(
     if found_models:
         logger.info(f"Found models: {found_models}")
         # check if images contains bytes or UploadFile objects
+        logger.debug(f"DBG>>> {type(images[0])=}")
         if not isinstance(images[0], bytes):
             logger.debug(f"Images are not bytes, converting to numpy arrays")
             images = [
@@ -327,10 +335,10 @@ async def detect(
 
 
 def load_image_into_numpy_array(data: bytes) -> np.ndarray:
-    """Load an uploaded image into a numpy array
+    """Load an uploaded image into a numpy array and decode the image using cv2
 
     :param data: The image data in bytes
-    :return: A cv2 imdecoded numpy array
+    :return: A cv2 decoded numpy array
     """
     np_img = np.frombuffer(data, np.uint8)
     if np_img is None:
@@ -613,7 +621,7 @@ async def base64_detection(
     request: Request,
     images: Union[Optional[Base64Bytes], List[Optional[Base64Bytes]]] = Body(
         ...,
-        description="JSON Form request with base64 encoded images and List of model names/UUIDs to run on the images",
+        description="JSON body request with base64 encoded images",
     ),
     hints_model: Optional[str] = Form(
         None,
@@ -628,14 +636,13 @@ async def base64_detection(
     # hints = image_request.hints_model
     # images = image_request.images
     if isinstance(images, list):
-        logger.debug(f"Got a list of images")
         images = [x for x in images if x is not None]
     elif isinstance(images, bytes):
-        logger.debug(f"Got a single image as bytes, converting to a list")
+        logger.debug(f"received a single image as bytes, converting to a list")
         images = [images]
     hints = hints_model
     hints = json.loads(hints)
-    logger.debug(f"Got {hints_model = }")
+    logger.debug(f"received model hints: {hints_model}")
     if hints and images:
         detections = await detect(hints, images)
         if detections:
@@ -882,7 +889,7 @@ async def login_for_access_token(
     summary="Return an annotated jpeg image with bounding boxes and labels",
 )
 async def swagger_annotate(
-    user_obj=Depends(verify_token),
+    user_obj=Depends(http_verify_jwt),
     hints_: List[str] = Body(
         ...,
         openapi_examples=["yolov4", "yolov4 tiny", "yolov7-tiny"],
@@ -907,7 +914,7 @@ async def swagger_annotate(
 )
 async def swagger_detection(
     request: Request,
-    user_obj=Depends(verify_token),
+    user_obj=Depends(http_verify_jwt),
     hints_model: List[Optional[str]] = Body(
         ...,
         description="List of model names/UUIDs",
@@ -931,3 +938,100 @@ async def swagger_detection(
         detections = {"error": "No models specified"}
     logger.info(f"perf:{LP} {DETECT_PATH} took {time.time() - start:.5f} s")
     return detections
+
+
+class WSConnectionManager:
+    lp = "ws:mngr:"
+    def __init__(self):
+        self.active_connections: List[WebSocket] = []
+
+    async def connect(self, websocket: WebSocket):
+        lp = f"{self.lp}connect:"
+        client_ip = websocket.client.host
+        try:
+            await ws_pre_connect(websocket)
+        # catch propagated errors, we want to log the IP for fail2ban / crowdsec, etc.
+        except WebSocketDisconnect as e:
+            logger.error(f"{lp} auth FAILED from IP: {client_ip}")
+        else:
+            await websocket.accept()
+            self.active_connections.append(websocket)
+
+    def disconnect(self, websocket: WebSocket):
+        self.active_connections.remove(websocket)
+
+    async def broadcast_bytes(self, message: bytes):
+        for connection in self.active_connections:
+            await connection.send_bytes(message)
+
+    async def broadcast_text(self, message: str):
+        for connection in self.active_connections:
+            await connection.send_text(message)
+
+ws_manager = WSConnectionManager()
+
+async def ws_pre_connect(websocket: WebSocket):
+    """Extract token from WebSocket query params and verify."""
+    token = websocket.query_params.get("token")
+    cl_code = 1008
+    if token is None:
+        raise WebSocketDisconnect(code=cl_code, reason="No token provided")
+    elif token is not None and not token:
+        raise WebSocketDisconnect(code=cl_code, reason="Token supplied but is empty (0 length)")
+    elif token and not ws_verify_jwt(token):
+        raise WebSocketDisconnect(code=cl_code, reason="Invalid token")
+
+
+@app.websocket(f"{WS_PREFIX}{WS_API_VER}/mp_detect")
+async def websocket_msgpack(websocket: WebSocket):
+    """
+import websockets
+import asyncio
+
+async def connect():
+    jwt_token = "your_valid_jwt_token_here"
+    ws_url = f"ws://localhost:8000/ws/yolo?token={jwt_token}"
+
+    async with websockets.connect(ws_url) as ws:
+        metadata = {"request_id": "12345", "model": "yolo-v8"}
+        await ws.send(json.dumps(metadata))
+
+        # Send image (example)
+        with open("image.jpg", "rb") as img:
+            await ws.send(img.read())
+
+        # Receive response
+        response = await ws.recv()
+        print("Response:", response)
+
+asyncio.run(connect())
+    """
+    lp = "ws:"
+    client_ip = websocket.client.host
+    logger.debug(f"{lp} client connecting from IP: {client_ip}")
+    await ws_manager.connect(websocket)
+    try:
+        while True:
+            # the gist is, only msgpack binary data
+            packed_data = await websocket.receive_bytes()
+            payload = msgpack.unpackb(packed_data)
+            # {'hints': ['model 1', 'model 2'], 'image': [b'resized, letterboxed, cv2 decoded numpy array'] }
+            ret_errs = ""
+            if not payload:
+                ret_errs = "No data provided"
+            elif 'hints' not in payload:
+                ret_errs = "No model hints provided"
+            elif 'image' not in payload:
+                ret_errs = "No image data provided"
+            else:
+                image_data = payload["image"]
+                hints = payload["hints"]
+                logger.debug(f"{lp} received image data and hints: {hints}")
+                detections = await detect(hints, image_data)
+                await websocket.send_bytes(msgpack.packb(detections))
+    except WebSocketDisconnect as e:
+        logger.error(f"{lp} client disconnected from IP: {client_ip}")
+        raise e
+    except Exception as e:
+        logger.exception(f"{lp} ERROR: {e}")
+        raise e

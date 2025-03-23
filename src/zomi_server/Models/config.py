@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import enum
 import json
 import logging
@@ -43,6 +45,7 @@ from .validators import (
 from .DEFAULTS import *
 from ..Log import SERVER_LOGGER_NAME
 from ..ML.Detectors.color_detector import ColorDetector
+from ..auth import UserDB
 
 logger = logging.getLogger(SERVER_LOGGER_NAME)
 
@@ -1629,7 +1632,7 @@ class GlobalConfig(BaseModel, arbitrary_types_allowed=True):
     detectors: List[APIDetector] = Field(
         default_factory=list, description="Loaded Detectors"
     )
-    user_db: None = Field(None, description="User Database (TinyDB)")
+    user_db: Optional[UserDB] = Field(None, description="User Database (TinyDB)")
     async_locks: Dict[ModelProcessor, BoundedSemaphore] = Field(default_factory=dict)
     color_detector: Optional[ColorDetector] = None
 
