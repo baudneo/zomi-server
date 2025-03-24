@@ -36,7 +36,13 @@ try:
 except ImportError:
     warn("onnxruntime not installed, cannot use onnxruntime detectors")
     ort = None
-import numpy as np
+try:
+    import cupy as cp  # Try importing CuPy
+    _HAS_CUPY = True
+    np = cp  # Dynamically alias CuPy as `np`
+except ImportError:
+    import numpy as np  # Fallback to NumPy
+    _HAS_CUPY = False
 
 from ...app import get_global_config
 from ...Models.Enums import ModelProcessor

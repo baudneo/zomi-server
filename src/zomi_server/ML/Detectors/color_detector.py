@@ -15,7 +15,13 @@ try:
 except ImportError:
     warn("OpenCV not installed!")
     raise
-import numpy as np
+try:
+    import cupy as cp  # Try importing CuPy
+    _HAS_CUPY = True
+    np = cp  # Dynamically alias CuPy as `np`
+except ImportError:
+    import numpy as np  # Fallback to NumPy
+    _HAS_CUPY = False
 from sklearn.cluster import KMeans
 import webcolors
 

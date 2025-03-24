@@ -9,7 +9,13 @@ from asyncio import BoundedSemaphore
 from pathlib import Path
 from typing import Union, Dict, List, Optional, Tuple, Annotated, Any
 
-import numpy as np
+try:
+    import cupy as cp  # Try importing CuPy
+    _HAS_CUPY = True
+    np = cp  # Dynamically alias CuPy as `np`
+except ImportError:
+    import numpy as np  # Fallback to NumPy
+    _HAS_CUPY = False
 import yaml
 from pydantic import (
     BaseModel,
@@ -1637,7 +1643,7 @@ class GlobalConfig(BaseModel, arbitrary_types_allowed=True):
     color_detector: Optional[ColorDetector] = None
 
     def create_detector(self, model: BaseModelConfig) -> Optional[APIDetector]:
-        logger.debug(f"Attempting to create new detector for '{model.name}'")
+        logger.debug(f"Attempting to create new detector for '{model.name}', depending on backend, processor type and model size, this can take a bit...")
         _s = time.time()
         ret_ = None
         try:

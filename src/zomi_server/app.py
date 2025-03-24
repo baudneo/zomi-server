@@ -4,6 +4,7 @@ import asyncio
 import ipaddress
 import json
 import logging
+import pickle
 import random
 import sys
 import time
@@ -24,7 +25,16 @@ except ImportError:
         "quickly for only cpu support using 'opencv-contrib-python' package"
     )
 
-import numpy as np
+try:
+    import cupy
+    cp = cupy  # Try importing CuPy
+    import numpy
+    _HAS_CUPY = True
+    np = cp  # Dynamically alias CuPy as `np`
+except ImportError:
+    import numpy
+    np = numpy  # Fallback to NumPy
+    _HAS_CUPY = False
 import pydantic
 import uvicorn
 import uvloop
@@ -297,17 +307,20 @@ async def detect(
     if found_models:
         logger.info(f"Found models: {found_models}")
         # check if images contains bytes or UploadFile objects
-        logger.debug(f"DBG>>> {type(images[0])=}")
-        if not isinstance(images[0], bytes):
+        logger.debug(f"{type(images[0])=} // IsNumPy: {isinstance(images[0], numpy.ndarray)} // IsCuPy: {isinstance(images[0], cupy.ndarray)}")
+        if isinstance(images[0], (cupy.ndarray, numpy.ndarray)):
+            pass
+        elif not isinstance(images[0], bytes):
             logger.debug(f"Images are not bytes, converting to numpy arrays")
             images = [
                 load_image_into_numpy_array(await image.read()) for image in images
             ]
         else:
-            logger.debug(f"Images are not bytes, converting to numpy arrays")
+            logger.debug(f"Images are bytes, converting to numpy arrays")
             images = [load_image_into_numpy_array(image) for image in images]
+
         for image in images:
-            logger.debug(f"Image size = {image.size}")
+            logger.debug(f"Image size = {image.size} // shape: {image.shape}")
             img_dets = []
             for detector in detectors:
                 # logger.info(f"Starting detection for {detector}")
@@ -613,17 +626,17 @@ async def base64_annotate(
 
 
 @app.post(
-    DETECT_PATH,
+    DETECT_PATH + "/b64",
     summary="Detect objects in Base64 encoded images using a set of models referenced by name/UUID",
     include_in_schema=False,
 )
 async def base64_detection(
     request: Request,
-    images: Union[Optional[Base64Bytes], List[Optional[Base64Bytes]]] = Body(
+    images: Union[Optional[Base64Bytes], List[Optional[Base64Bytes]], Any] = Body(
         ...,
         description="JSON body request with base64 encoded images",
     ),
-    hints_model: Optional[str] = Form(
+    hints_model: Union[Optional[str], List[Optional[str]], Any] = Form(
         None,
         description="List of model names/UUIDs to run on the images",
         alias="model_hints",
@@ -643,6 +656,45 @@ async def base64_detection(
     hints = hints_model
     hints = json.loads(hints)
     logger.debug(f"received model hints: {hints_model}")
+    if hints and images:
+        detections = await detect(hints, images)
+        if detections:
+            logger.debug(f"{LP} {DETECT_PATH} results: {detections}")
+        else:
+            logger.debug(f"{LP} {DETECT_PATH} NO RESULTS!")
+    elif not hints:
+        raise HTTPException(status_code=400, detail="No model hints specified")
+    elif not images:
+        raise HTTPException(status_code=400, detail="No images specified")
+    else:
+        raise HTTPException(status_code=400, detail="No models or images specified")
+
+    logger.info(f"perf:{LP} '{DETECT_PATH}' path took {time.time() - start:.5f} s")
+
+    return detections
+
+
+@app.post(
+    DETECT_PATH,
+    summary="Detect objects in images using a set of models referenced by name/UUID, payload is python pickled",
+    include_in_schema=False,
+)
+async def pickle_detection(
+    request: Request,
+    payload: bytes = Body(..., description="Python pickled payload containing numpy array images and list of strings for model names/UUIDs"),
+):
+    """FastAPI endpoint. Detect objects in images using a set of threaded models referenced by name/UUID. Images are sent as Form data and base64 encoded"""
+    start = time.time()
+    fmt_payload: dict = pickle.loads(payload)
+    images = fmt_payload["images"]
+    hints = fmt_payload["model_hints"]
+    logger.debug(f"received model hints: {hints}")
+    if isinstance(images, list):
+        images = [x for x in images if x is not None]
+    elif isinstance(images, bytes):
+        logger.debug(f"received a single image as bytes, converting to a list")
+        images = [images]
+
     if hints and images:
         detections = await detect(hints, images)
         if detections:
@@ -948,6 +1000,7 @@ class WSConnectionManager:
     async def connect(self, websocket: WebSocket):
         lp = f"{self.lp}connect:"
         client_ip = websocket.client.host
+        logger.debug(f"{lp} client connecting from IP: {client_ip}")
         try:
             await ws_pre_connect(websocket)
         # catch propagated errors, we want to log the IP for fail2ban / crowdsec, etc.
@@ -982,7 +1035,41 @@ async def ws_pre_connect(websocket: WebSocket):
         raise WebSocketDisconnect(code=cl_code, reason="Invalid token")
 
 
-@app.websocket(f"{WS_PREFIX}{WS_API_VER}/mp_detect")
+@app.websocket(f"{WS_PREFIX}{WS_API_VER}/detect_pkl")
+async def websocket_pickle(websocket: WebSocket):
+    lp = "ws:pkl:"
+    client_ip = websocket.client.host
+    await ws_manager.connect(websocket)
+    try:
+        while True:
+            # the gist is, only msgpack binary data
+            pickled_data = await websocket.receive_bytes()
+            payload = pickle.loads(pickled_data)
+            # {'model_hints': ['model 1', 'model 2'], 'image': [b'resized, letterboxed, cv2 decoded numpy array'] }
+            ret_errs = ""
+            if not payload:
+                ret_errs = "No data provided"
+            elif 'hints' not in payload:
+                ret_errs = "No model hints provided"
+            elif 'image' not in payload:
+                ret_errs = "No image data provided"
+            else:
+                msg_id = payload["msg_id"]
+                image_data = payload["image"]
+                hints = payload["model_hints"]
+                logger.debug(f"{lp} received image data and hints: {hints}")
+                detections = await detect(hints, image_data)
+                detections['msg_id'] = msg_id
+                await websocket.send_bytes(pickle.dumps(detections))
+    except WebSocketDisconnect as e:
+        logger.error(f"{lp} client disconnected from IP: {client_ip}")
+        raise e
+    except Exception as e:
+        logger.exception(f"{lp} ERROR: {e}")
+        raise e
+
+
+@app.websocket(f"{WS_PREFIX}{WS_API_VER}/detect_mp")
 async def websocket_msgpack(websocket: WebSocket):
     """
 import websockets
@@ -1006,7 +1093,7 @@ async def connect():
 
 asyncio.run(connect())
     """
-    lp = "ws:"
+    lp = "ws:msgpk:"
     client_ip = websocket.client.host
     logger.debug(f"{lp} client connecting from IP: {client_ip}")
     await ws_manager.connect(websocket)

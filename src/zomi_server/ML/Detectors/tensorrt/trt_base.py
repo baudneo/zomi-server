@@ -1,13 +1,10 @@
 from __future__ import annotations
 
-import asyncio
 import logging
 import time
 import uuid
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Optional, List, Tuple, Union
-
-from ....app import get_global_config
 
 # Need the logger to log import errors
 from ....Log import SERVER_LOGGER_NAME
@@ -33,8 +30,20 @@ except ModuleNotFoundError:
     cv2 = None
     logger.error("OpenCV not found, cannot use TensorRT detectors")
 
-import numpy as np
+try:
+    import cupy
+    import numpy
+    cp = cupy  # Try importing CuPy
+    _HAS_CUPY = True
+    np = cp  # Dynamically alias CuPy as `np`
+except ImportError:
+    import numpy
+    np = numpy  # Fallback to NumPy
+    _HAS_CUPY = False
+    cp = None
+    cupy = None
 
+from ....app import get_global_config
 from ....Models.Enums import ModelProcessor
 from ....Models.config import (
     DetectionResults,
@@ -77,6 +86,26 @@ def blob(im: np.ndarray, return_seg: bool = False) -> Union[np.ndarray, Tuple]:
     seg = None
     if return_seg:
         seg = im.astype(np.float32) / 255
+
+    im = im.transpose([2, 0, 1])  # Change shape from (H, W, C) → (C, H, W)
+    im = im[np.newaxis, ...]  # Add batch dimension
+
+    # Ensure `np` is CuPy or NumPy and handle conversion
+    if _HAS_CUPY and isinstance(im, numpy.ndarray):
+        im = cp.asarray(im)  # Convert NumPy → CuPy
+
+    im = np.ascontiguousarray(im).astype(np.float32) / 255
+
+    if return_seg:
+        return im, seg
+    else:
+        return im
+
+
+def old_blob(im: np.ndarray, return_seg: bool = False) -> Union[np.ndarray, Tuple]:
+    seg = None
+    if return_seg:
+        seg = im.astype(np.float32) / 255
     im = im.transpose([2, 0, 1])
     im = im[np.newaxis, ...]
     im = np.ascontiguousarray(im).astype(np.float32) / 255
@@ -115,6 +144,10 @@ def letterbox(
     )  # add border
     return im, r, (dw, dh)
 
+
+def to_numpy(array):
+    """Ensure the array is a NumPy array before passing to OpenCV."""
+    return array.get() if _HAS_CUPY and isinstance(array, cp.ndarray) else array
 
 def _postprocess(
     data: Tuple[np.ndarray],
@@ -263,9 +296,13 @@ class TensorRtDetector:
                 status, gpu = cudart.cudaMallocAsync(cpu.nbytes, self.stream)
                 assert status.value == 0, f"{LP} failed to allocate memory on GPU"
                 # copy the data from the cpu to the gpu
+                if _HAS_CUPY:
+                    cpu_ptr = cpu.data.ptr
+                else:
+                    cpu_ptr = cpu.ctypes.data
                 cudart.cudaMemcpyAsync(
                     gpu,
-                    cpu.ctypes.data,
+                    cpu_ptr,
                     cpu.nbytes,
                     cudart.cudaMemcpyKind.cudaMemcpyHostToDevice,
                     self.stream,
@@ -281,13 +318,17 @@ class TensorRtDetector:
             dtype = trt.nptype(self.runtime_engine.get_binding_dtype(i))
             shape = tuple(self.runtime_engine.get_binding_shape(i))
             #
+            if _HAS_CUPY:
+                cpu_ptr = cpu.data.ptr
+            else:
+                cpu_ptr = cpu.ctypes.dtype
             if not dynamic:
                 cpu = np.empty(shape, dtype=dtype)
                 status, gpu = cudart.cudaMallocAsync(cpu.nbytes, self.stream)
                 assert status.value == 0
                 cudart.cudaMemcpyAsync(
                     gpu,
-                    cpu.ctypes.data,
+                    cpu_ptr,
                     cpu.nbytes,
                     cudart.cudaMemcpyKind.cudaMemcpyHostToDevice,
                     self.stream,
@@ -332,6 +373,7 @@ class TensorRtDetector:
         :param pad_color: Padding color as (B, G, R), default is black.
         :return: Resized and padded image.
         """
+        start_ = time.time()
         model_w, model_h = model_wxh
         h, w = bgr_image.shape[:2]
         # check if we need to resize at all
@@ -348,9 +390,12 @@ class TensorRtDetector:
         resized_image = cv2.resize(bgr_image, (new_w, new_h), interpolation=cv2.INTER_AREA)
 
         ## create a black image and then overlay the resized image onto it, without centering
+        if _HAS_CUPY:
+            pad_color = np.array(pad_color, dtype=np.uint8)
+            resized_image = np.asarray(resized_image)  # Ensure it matches np (numpy or cupy)
         padded_image = np.full((model_h, model_w, 3), pad_color, dtype=np.uint8)
         padded_image[:new_h, :new_w] = resized_image
-        logger.debug(f"{LP} resized and padded image, original shape: {bgr_image.shape}, new shape: {padded_image.shape} // scale: {self.scale}")
+        logger.debug(f"perf:{LP} resized and padded image, original shape: {bgr_image.shape}, new shape: {padded_image.shape} // scale: {self.scale} took: {time.time() - start_:.5f} seconds")
         return padded_image
 
     async def detect(self, input_image: np.ndarray) -> DetectionResults:
@@ -364,7 +409,7 @@ class TensorRtDetector:
         # resize image to network size
         # rgb = cv2.resize(rgb, (self.input_width, self.input_height))
         proc_inp_img = self.resize_and_pad(input_image, (self.input_width, self.input_height))
-        rgb = cv2.cvtColor(proc_inp_img, cv2.COLOR_BGR2RGB)
+        rgb = cv2.cvtColor(to_numpy(proc_inp_img), cv2.COLOR_BGR2RGB)
         tensor = blob(rgb)
         # dwdh = np.array(dwdh * 2, dtype=np.float32)
         tensor = np.ascontiguousarray(tensor)
@@ -442,7 +487,35 @@ class TensorRtDetector:
 
     def __call__(self, *inputs) -> Union[Tuple, np.ndarray]:
         assert len(inputs) == self.num_inputs, f"{LP} incorrect number of inputs"
-        contiguous_inputs: List[np.ndarray] = [np.ascontiguousarray(i) for i in inputs]
+
+        # logger.debug(f"{LP} {type(inputs)=} // {inputs=}")
+        if _HAS_CUPY:
+
+            if len(inputs) == 1 and isinstance(inputs[0], list):
+                inputs = inputs[0]  # Unwrap list
+            #convert to cp.ndarray
+            # Ensure each input is a NumPy or CuPy array before passing to ascontiguousarray
+            contiguous_inputs = [np.ascontiguousarray(i) for i in inputs]
+
+            # If `inputs` is a tuple containing a single list, extract it
+            # if len(inputs) == 1 and isinstance(inputs[0], list):
+            #     inputs = inputs[0]  # Unwrap the list
+        else:
+            contiguous_inputs: List[np.ndarray] = [np.ascontiguousarray(i) for i in inputs]
+
+
+
+
+
+
+
+
+
+
+
+
+
+
         for i in range(self.num_inputs):
             if self.is_dynamic:
                 logger.debug(f"{LP} setting binding shape for input layer: {i}")
@@ -453,9 +526,15 @@ class TensorRtDetector:
                 assert (
                     status.value == 0
                 ), f"{LP} failed to allocate memory on GPU for dynamic input"
+
+            if _HAS_CUPY:
+                inp_ptr = contiguous_inputs[i].data.ptr
+            else:
+                inp_ptr = contiguous_inputs[i].ctypes.data
+
             cudart.cudaMemcpyAsync(
                 self.inp_info[i].gpu,
-                contiguous_inputs[i].ctypes.data,
+                inp_ptr,
                 contiguous_inputs[i].nbytes,
                 cudart.cudaMemcpyKind.cudaMemcpyHostToDevice,
                 self.stream,
@@ -477,7 +556,7 @@ class TensorRtDetector:
                 ), f"{LP} failed to allocate memory on GPU from dynamic input"
                 cudart.cudaMemcpyAsync(
                     gpu,
-                    cpu.ctypes.data,
+                    cpu.ctypes.data or cpu.data,
                     cpu.nbytes,
                     cudart.cudaMemcpyKind.cudaMemcpyHostToDevice,
                     self.stream,
@@ -491,9 +570,14 @@ class TensorRtDetector:
         self.context.execute_async_v2(self.bindings, self.stream)
         cudart.cudaStreamSynchronize(self.stream)
 
+        if _HAS_CUPY:
+            outputs_ptr = outputs[i].data.ptr
+        else:
+            outputs_ptr = outputs[i].ctypes.data
+
         for i, o in enumerate(output_gpu_ptrs):
             cudart.cudaMemcpyAsync(
-                outputs[i].ctypes.data,
+                outputs_ptr,
                 o,
                 outputs[i].nbytes,
                 cudart.cudaMemcpyKind.cudaMemcpyDeviceToHost,
@@ -558,7 +642,7 @@ class TensorRtDetector:
         do_nms = True
         if do_nms is True:
             nms, conf = self.options.nms.threshold, self.options.confidence
-            indices = cv2.dnn.NMSBoxes(boxes, scores, conf, nms)
+            indices = cv2.dnn.NMSBoxes(to_numpy(boxes), to_numpy(scores), conf, nms)
             if len(indices) == 0:
                 logger.debug(
                     f"{LP} no detections after filter by NMS ({nms}) and confidence ({conf})"

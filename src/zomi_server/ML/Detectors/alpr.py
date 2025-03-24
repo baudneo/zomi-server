@@ -8,7 +8,13 @@ from typing import Optional, Union, Dict
 from logging import getLogger
 
 import cv2
-import numpy as np
+try:
+    import cupy as cp  # Try importing CuPy
+    _HAS_CUPY = True
+    np = cp  # Dynamically alias CuPy as `np`
+except ImportError:
+    import numpy as np  # Fallback to NumPy
+    _HAS_CUPY = False
 import requests
 from requests import Response
 
