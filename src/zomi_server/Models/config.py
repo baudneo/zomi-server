@@ -10,12 +10,16 @@ from pathlib import Path
 from typing import Union, Dict, List, Optional, Tuple, Annotated, Any
 
 try:
-    import cupy as cp  # Try importing CuPy
+    import cupy  # Try importing CuPy
+    import numpy
+    cp = cupy
     _HAS_CUPY = True
     np = cp  # Dynamically alias CuPy as `np`
 except ImportError:
     import numpy as np  # Fallback to NumPy
     _HAS_CUPY = False
+    cp = None
+    cupy = None
 import yaml
 from pydantic import (
     BaseModel,
@@ -454,12 +458,13 @@ class TPUModelOptions(BaseModelOptions, extra="allow"):
 class TorchModelOptions(BaseModelOptions):
     nms: NMSOptions = Field(default_factory=NMSOptions, description="NMS Options")
 
+class NETINTModelOptions(BaseModelOptions):
+    nms: NMSOptions = Field(default_factory=NMSOptions, description="NMS Options")
 
 class CV2YOLOModelOptions(BaseModelOptions):
     nms: Optional[float] = Field(
         0.4, ge=0.0, le=1.0, description="Non-Maximum Suppression Threshold"
     )
-
 
 class FaceRecognitionLibModelDetectionOptions(BaseModelOptions):
     # face_recognition lib config Options
@@ -834,6 +839,46 @@ class CV2YOLOModelConfig(BaseModelConfig):
         return self
 
 
+class NETINTModelConfig(BaseModelConfig):
+    input: Optional[Path] = Field(None, description="model file/dir path (Optional)")
+    config: Optional[Path] = Field(
+        None, description="model config file path (Optional)"
+    )
+    classes: Optional[Path] = Field(
+        None, description="model classes file path (Optional)"
+    )
+    device_id: Optional[int] = Field(
+        0, ge=0, le=4, description="Device ID"
+    )
+    height: Optional[int] = Field(
+        416, ge=1, description="Model input height (resized for model)"
+    )
+    width: Optional[int] = Field(
+        416, ge=1, description="Model input width (resized for model)"
+    )
+    square: Optional[bool] = Field(
+        False, description="Zero pad the image to be a square; 1920x1080 = 1920x1920"
+    )
+
+    _validate_labels = field_validator("labels", check_fields=False)(validate_model_labels)
+
+    @field_validator("config", "input", "classes", mode="before")
+    @classmethod
+    def str_to_path(cls, v, info: FieldValidationInfo) -> Optional[Path]:
+        msg = f"{info.field_name} must be a path or a string of a path"
+        model_name = info.data.get("name", "Unknown Model")
+        model_input: Optional[Path] = info.data.get("input")
+        lp = f"Model Name: {model_name} ->"
+
+        if v is None:
+            return v
+        elif not isinstance(v, (Path, str)):
+            raise ValueError(msg)
+        elif isinstance(v, str):
+            v = Path(v)
+        return v
+
+
 class FaceRecognitionLibModelConfig(BaseModelConfig):
     """Config cant be changed after loading - Options can be changed"""
 
@@ -1154,6 +1199,10 @@ class Settings(BaseModel, arbitrary_types_allowed=True):
                         config = TorchModelConfig(**model)
                         config.detection_options = TorchModelOptions(**_options)
                         final_model_config = config
+                    elif _framework == ModelFrameWork.NETINT:
+                        config = NETINTModelConfig(**model)
+                        config.detection_options = NETINTModelOptions(**_options)
+                        final_model_config = config
                     else:
                         raise NotImplementedError(
                             f"Framework {_framework} not implemented"
@@ -1257,6 +1306,7 @@ class APIDetector:
         TorchModelConfig,
         "ORTModelConfig",
         "TRTModelConfig",
+        "NETINTModelConfig",
     ]
     _options: Union[
         BaseModelOptions,
@@ -1269,6 +1319,7 @@ class APIDetector:
         TorchModelOptions,
         "ORTModelOptions",
         "TRTModelOptions",
+        "NETINTModelOptions",
     ]
 
     def __repr__(self):
@@ -1402,6 +1453,8 @@ class APIDetector:
                 self.config.processor = ModelProcessor.TPU
             elif self.config.framework == ModelFrameWork.HTTP:
                 self.config.processor = ModelProcessor.NONE
+            elif self.config.framework == ModelFrameWork.NETINT:
+                self.config.processor = ModelProcessor.QUADRA
             else:
                 self.config.processor = ModelProcessor.CPU
             logger.warning(
@@ -1469,7 +1522,9 @@ class APIDetector:
                 from ..ML.Detectors.torch.torch_base import TorchDetector
 
                 self.model = TorchDetector(self.config)
-
+            elif self.config.framework == ModelFrameWork.NETINT:
+                from ..ML.Detectors.netint import NETINTDetector
+                self.model = NETINTDetector(self.config)
             else:
                 logger.warning(
                     f"CANT CREATE DETECTOR -> Framework NOT IMPLEMENTED!!! {self.config.framework}"
@@ -1598,6 +1653,9 @@ class APIDetector:
                 available = False
             elif framework == ModelFrameWork.TRT:
                 available = True
+            elif processor == ModelProcessor.QUADRA:
+                if framework == ModelFrameWork.NETINT:
+                    available = True
         logger.debug(
             f"{processor} is {'NOT ' if not available else ''}available for {framework} - '{self.config.name}'"
         )

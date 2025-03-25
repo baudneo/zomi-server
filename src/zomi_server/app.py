@@ -1025,14 +1025,21 @@ ws_manager = WSConnectionManager()
 
 async def ws_pre_connect(websocket: WebSocket):
     """Extract token from WebSocket query params and verify."""
-    token = websocket.query_params.get("token")
+    username = websocket.query_params.get("username")
+    password = websocket.query_params.get("password")
     cl_code = 1008
-    if token is None:
-        raise WebSocketDisconnect(code=cl_code, reason="No token provided")
-    elif token is not None and not token:
-        raise WebSocketDisconnect(code=cl_code, reason="Token supplied but is empty (0 length)")
-    elif token and not ws_verify_jwt(token):
-        raise WebSocketDisconnect(code=cl_code, reason="Invalid token")
+    if username is None:
+        raise WebSocketDisconnect(code=cl_code, reason="No username provided")
+    elif username is not None and not username:
+        raise WebSocketDisconnect(code=cl_code, reason="Username supplied but is empty (0 length)")
+    if password is None:
+        raise WebSocketDisconnect(code=cl_code, reason="No password provided")
+    elif password is not None and not password:
+        raise WebSocketDisconnect(code=cl_code, reason="Password supplied but is empty (0 length)")
+    user = get_global_config().user_db.authenticate_user(username, password, ip=websocket.client.host)
+    if not user:
+        raise WebSocketDisconnect(code=cl_code, reason="Invalid username or password")
+    return user
 
 
 @app.websocket(f"{WS_PREFIX}{WS_API_VER}/detect_pkl")
@@ -1040,27 +1047,44 @@ async def websocket_pickle(websocket: WebSocket):
     lp = "ws:pkl:"
     client_ip = websocket.client.host
     await ws_manager.connect(websocket)
+    logger.debug(f"{lp} starting receive loop")
     try:
         while True:
             # the gist is, only msgpack binary data
             pickled_data = await websocket.receive_bytes()
+            recv_at = time.time()
             payload = pickle.loads(pickled_data)
+            # logger.debug(f"{lp} received payload: {payload}")
             # {'model_hints': ['model 1', 'model 2'], 'image': [b'resized, letterboxed, cv2 decoded numpy array'] }
             ret_errs = ""
             if not payload:
                 ret_errs = "No data provided"
-            elif 'hints' not in payload:
+            elif 'model_hints' not in payload:
                 ret_errs = "No model hints provided"
-            elif 'image' not in payload:
+            elif 'images' not in payload:
                 ret_errs = "No image data provided"
             else:
                 msg_id = payload["msg_id"]
-                image_data = payload["image"]
+                images = payload["images"]
                 hints = payload["model_hints"]
-                logger.debug(f"{lp} received image data and hints: {hints}")
-                detections = await detect(hints, image_data)
-                detections['msg_id'] = msg_id
-                await websocket.send_bytes(pickle.dumps(detections))
+                logger.debug(f"{lp} received msg id: '{msg_id}' -> images and model hints: {hints}")
+                start_det = time.time()
+                detections = await detect(hints, images)
+                end_det = time.time()
+                logger.debug(f"perf:{lp} detections took {end_det - start_det:.5f} s")
+                # convert the models to dicts
+                new_decs = [msg_id]
+                for img_results in detections:
+                    # logger.debug(f"{lp} img_results type: {type(img_results)} // length: {len(img_results)}")
+                    new_img_res = []
+                    for model_results in img_results:
+                        # logger.debug(f"{lp} model_results type: {type(model_results)}")
+                        new_img_res.append(model_results.model_dump(mode='json'))
+                    new_decs.append(new_img_res)
+                logger.debug(f"perf:{lp} total request took {time.time() - recv_at:.5f} s")
+                await websocket.send_bytes(pickle.dumps(new_decs))
+            if ret_errs:
+                logger.error(f"{lp} ERROR: {ret_errs}")
     except WebSocketDisconnect as e:
         logger.error(f"{lp} client disconnected from IP: {client_ip}")
         raise e
